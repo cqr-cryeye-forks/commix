@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -17,27 +17,50 @@ import re
 import os
 import sys
 import time
-import urllib
 import random
 import string
-        
+import codecs
+from src.core.compat import xrange
+from src.thirdparty.six.moves import urllib as _urllib
+from src.thirdparty.six.moves import reload_module as _reload_module
 from src.thirdparty.colorama import Fore, Back, Style, init
 
+class HTTPMETHOD(object):
+  GET = "GET"
+  POST = "POST"
+  HEAD = "HEAD"
+  PUT = "PUT"
+  DELETE = "DELETE"
+  TRACE = "TRACE"
+  OPTIONS = "OPTIONS"
+  CONNECT = "CONNECT"
+  PATCH = "PATCH"
+
+# Status
+FAIL_MSG = Fore.RED + " " * 10 + Style.RESET_ALL
+FAIL_STATUS = "" + FAIL_MSG + ""
+info_msg = Fore.GREEN + " " * 10 + Style.RESET_ALL
+SUCCESS_STATUS = "" + info_msg + ""
+
 # Status Signs
-SUCCESS_SIGN = "[" + Fore.GREEN + Style.BRIGHT + "+" + Style.RESET_ALL + "] "
-INFO_SIGN = Style.RESET_ALL + "[" + Fore.BLUE + Style.BRIGHT + "*" + Style.RESET_ALL + "] "
-QUESTION_SIGN = Style.RESET_ALL + "[" + Style.BRIGHT + Fore.MAGENTA + "?" + Style.RESET_ALL + "] "
-WARNING_SIGN = "[" + Fore.YELLOW  + "!" + Style.RESET_ALL + "] " + Fore.YELLOW + "Warning: "
-WARNING_BOLD_SIGN = "[" + Style.BRIGHT + Fore.YELLOW  + "!" + Style.RESET_ALL + "] " + Style.BRIGHT + Fore.YELLOW + "Warning: "
 LEGAL_DISCLAIMER = "(" + Style.BRIGHT + Fore.RED + "!" + Style.RESET_ALL + ") " + "Legal disclaimer: "
-ERROR_SIGN = "[" + Fore.RED + Style.BRIGHT + "x" + Style.RESET_ALL  + "] " + Fore.RED + "Error: "
-CRITICAL_SIGN = Back.RED + "[x] Critical: "
-PAYLOAD_SIGN = "    |_ " + Fore.CYAN
-TRAFFIC_SIGN = "    |_ " + Back.MAGENTA
-HTTP_CONTENT_SIGN = Fore.MAGENTA
-CHECK_SIGN = "[" + Fore.BLUE + Style.BRIGHT + "*" + Style.RESET_ALL  + "] " + "Checking "
-SUB_CONTENT_SIGN = "    [" + Fore.GREY + Style.BRIGHT + "~" + Style.RESET_ALL  + "] "
+INFO_SIGN = Style.RESET_ALL + "[" + Fore.GREEN + "info" + Style.RESET_ALL + "] "
+INFO_BOLD_SIGN = "[" + Fore.GREEN + Style.BRIGHT + "info" + Style.RESET_ALL + "] " 
+REQUEST_SIGN = Style.RESET_ALL + "[" + Style.BRIGHT + Back.MAGENTA + "traffic" + Style.RESET_ALL + "] "
+RESPONSE_SIGN = Style.RESET_ALL + "[" + Style.BRIGHT + Back.MAGENTA + "traffic" + Style.RESET_ALL + "] "
+QUESTION_SIGN = Style.BRIGHT
+TOTAL_OF_REQUESTS_COLOR = Fore.LIGHTYELLOW_EX 
+WARNING_SIGN = "[" + Fore.LIGHTYELLOW_EX  + "warning" + Style.RESET_ALL + "] "
+WARNING_BOLD_SIGN = "[" + Style.BRIGHT + Fore.YELLOW  + "warning" + Style.RESET_ALL + "] " + Style.BRIGHT
+ERROR_SIGN = "[" + Fore.RED + "error" + Style.RESET_ALL  + "] " 
+CRITICAL_SIGN = "[" + Back.RED + "critical" + Style.RESET_ALL  + "] "
+PAYLOAD_SIGN = "[" + Fore.CYAN + "payload" + Style.RESET_ALL + "] " 
+SUB_CONTENT_SIGN = " " * 7 + Fore.GREY + "|_ " + Style.RESET_ALL
+TRAFFIC_SIGN = HTTP_CONTENT_SIGN = ""
 ABORTION_SIGN = ERROR_SIGN 
+DEBUG_SIGN = "[" + Back.BLUE + Fore.WHITE + "debug" + Style.RESET_ALL + "] " 
+DEBUG_BOLD_SIGN = "[" + Back.BLUE + Style.BRIGHT + Fore.WHITE + "debug" + Style.RESET_ALL + "] " + Style.BRIGHT
+CHECK_SIGN = DEBUG_SIGN + "Checking pair of credentials: "
 
 # Print error message
 def print_error_msg(err_msg):
@@ -69,14 +92,24 @@ def print_legal_disclaimer_msg(legal_disclaimer_msg):
   result = LEGAL_DISCLAIMER + str(legal_disclaimer_msg) + Style.RESET_ALL
   return result
 
+# Print request HTTP message
+def print_request_msg(req_msg):
+  result = REQUEST_SIGN + str(req_msg) + Style.RESET_ALL
+  return result
+
+# Print response HTTP message
+def print_response_msg(resp_msg):
+  result = RESPONSE_SIGN + str(resp_msg) + Style.RESET_ALL
+  return result
+
 # Print information message
 def print_info_msg(info_msg):
   result = INFO_SIGN + str(info_msg) + Style.RESET_ALL
   return result
 
-# Print success message
-def print_success_msg(success_msg):
-  result = SUCCESS_SIGN + Style.BRIGHT + str(success_msg) + Style.RESET_ALL
+# Print bold information message
+def print_bold_info_msg(info_msg):
+  result = INFO_BOLD_SIGN + Style.BRIGHT + str(info_msg) + Style.RESET_ALL
   return result
 
 # Print payload (verbose mode)
@@ -87,6 +120,14 @@ def print_payload(payload):
 # Print HTTP traffic (verbose mode)
 def print_traffic(traffic):
   result = TRAFFIC_SIGN + str(traffic) + Style.RESET_ALL
+  return result
+
+def print_request_num(number):
+  result = TOTAL_OF_REQUESTS_COLOR + "#" + str(number) + Style.RESET_ALL
+  return result
+
+def print_output(output):
+  result = Fore.GREEN + Style.BRIGHT + str(output) + Style.RESET_ALL
   return result
 
 # Print HTTP response content (verbose mode)
@@ -101,8 +142,23 @@ def print_checking_msg(payload):
 
 # Print question message
 def print_question_msg(question_msg):
-  result = QUESTION_SIGN + question_msg 
+  result = QUESTION_SIGN + question_msg + Style.RESET_ALL
   return result
+
+# Print sub content message
+def print_sub_content(sub_content):
+  result = SUB_CONTENT_SIGN + sub_content + Style.RESET_ALL
+  return result
+
+# Print debug message (verbose mode)
+def print_debug_msg(debug_msg):
+  result = DEBUG_SIGN + debug_msg + Style.RESET_ALL
+  return result  
+
+# Print bold debug message (verbose mode)
+def print_bold_debug_msg(debug_msg):
+  result = DEBUG_BOLD_SIGN + debug_msg + Style.RESET_ALL
+  return result  
 
 # argv checks
 def sys_argv_checks():
@@ -125,23 +181,27 @@ def sys_argv_checks():
 
 # argv input errors
 def sys_argv_errors():
-  reload(sys)  
-  sys.setdefaultencoding('utf8')
+  _reload_module(sys)
+  try:
+    # Fix for Python 2.7
+    sys.setdefaultencoding(UNICODE_ENCODING)
+  except AttributeError:
+    pass
   for i in xrange(len(sys.argv)):
     # Check for illegal (non-console) quote characters.
     if len(sys.argv[i]) > 1 and all(ord(_) in xrange(0x2018, 0x2020) for _ in ((sys.argv[i].split('=', 1)[-1].strip() or ' ')[0], sys.argv[i][-1])):
         err_msg = "Illegal (non-console) quote characters ('" + sys.argv[i] + "')."
-        print print_critical_msg(err_msg)
+        print(print_critical_msg(err_msg))
         raise SystemExit()
     # Check for illegal (non-console) comma characters.
-    if len(sys.argv[i]) > 1 and u"\uff0c" in sys.argv[i].split('=', 1)[-1]:
+    elif len(sys.argv[i]) > 1 and u"\uff0c" in sys.argv[i].split('=', 1)[-1]:
         err_msg = "Illegal (non-console) comma character ('" + sys.argv[i] + "')."
-        print print_critical_msg(err_msg)
+        print(print_critical_msg(err_msg))
         raise SystemExit()
     # Check for potentially miswritten (illegal '=') short option.
-    if re.search(r"\A-\w=.+", sys.argv[i]):
+    elif re.search(r"\A-\w=.+", sys.argv[i]):
         err_msg = "Potentially miswritten (illegal '=') short option detected ('" + sys.argv[i] + "')."
-        print print_critical_msg(err_msg)
+        print(print_critical_msg(err_msg))
         raise SystemExit()
 
 # argv checks
@@ -152,16 +212,17 @@ The global variables.
 """
 # About
 APPLICATION = "commix"
-DESCRIPTION_FULL = "Automated All-in-One OS Command Injection and Exploitation Tool"
+DESCRIPTION_FULL = "Automated All-in-One OS Command Injection Exploitation Tool"
 DESCRIPTION = "The command injection exploiter"
 AUTHOR  = "Anastasios Stasinopoulos"
-VERSION_NUM = "2.9.48"
-STABLE_VERSION = False
-if STABLE_VERSION:
-  VERSION = "v" + VERSION_NUM[:3] + "-stable"
+VERSION_NUM = "3.3"
+REVISION = "33"
+STABLE_RELEASE = False
+if STABLE_RELEASE:
+  VERSION = "v" + VERSION_NUM + "-stable"
 else:
-  VERSION = "v" + VERSION_NUM[:3] + "-dev#" + VERSION_NUM[4:]
-YEAR = "2014-2019"
+  VERSION = "v" + VERSION_NUM + "-dev#" + REVISION
+YEAR = "2014-2021"
 AUTHOR_TWITTER = "@ancst" 
 APPLICATION_URL = "https://commixproject.com" 
 APPLICATION_TWITTER = "@commixproject" 
@@ -177,6 +238,9 @@ LEGAL_DISCLAIMER_MSG = "Usage of " + APPLICATION + " for attacking targets witho
 # Random string generator
 RANDOM_STRING_GENERATOR = ''.join(random.choice(string.ascii_uppercase + string.digits + string.ascii_lowercase) for _ in range(10))
 
+# Readline 
+READLINE_ERROR = False
+
 # Random Tag
 RANDOM_TAG = "" 
 
@@ -189,6 +253,27 @@ PROXY_REGEX = r"((http[^:]*)://)?([\w\-.]+):(\d+)"
 # Inject Tag
 INJECT_TAG = "INJECT_HERE"
 INJECT_TAG_REGEX = r"(?i)INJECT[_]?HERE"
+VALUE_BOUNDARIES = r'[\\/](.+?)[\\/]'
+
+#Basic heuristic checks for code injection warnings or... phpinfo page ;)
+PHPINFO_PAYLOAD = "eval(phpinfo())"
+PHPINFO_CHECK_PAYLOADS = ["print(" + PHPINFO_PAYLOAD + ")", 
+                          "test)'}" + PHPINFO_PAYLOAD + "'#",
+                          "'." + PHPINFO_PAYLOAD + ".'",
+                          "{${" + PHPINFO_PAYLOAD + "}}",
+                          "\\\\/{${" + PHPINFO_PAYLOAD + "}}\\/\\"
+                         ]
+
+# Executed phpinfo()
+IDENTIFIED_PHPINFO = False
+CODE_INJECTION_PHPINFO = r"PHP Version </td><td class=\"v\">(([\w\.]+))"
+
+# Code injection warnings
+IDENTIFIED_WARNINGS = False
+CODE_INJECTION_WARNINGS = ["eval()'d code", "runtime-created function", "usort", "assert", "preg_replace"]
+
+SKIP_CODE_INJECTIONS = False
+SKIP_COMMAND_INJECTIONS = False
 
 # User-defined stored post data.
 USER_DEFINED_POST_DATA = ""
@@ -254,6 +339,9 @@ OUTPUT_FILE = OUTPUT_FILE_NAME + OUTPUT_FILE_EXT
 # Max Length.
 MAXLEN = "10000"
 
+# Maximum response total page size (trimmed if larger)
+MAX_CONNECTION_TOTAL_SIZE = 100 * 1024 * 1024
+
 # Slow target response.
 SLOW_TARGET_RESPONSE = 3
 
@@ -267,7 +355,7 @@ HTTP_HEADER = ""
 PREFIXES = ["", " ", "'", "\"", "&", "%26", "|", "%7C", "%27", "%22", "'%26"]
 
 # The command injection separators.
-SEPARATORS = ["", ";", "%3B", "&", "%26", "&&", "%26%26", "|", "%7C", "||", "%7C%7C", "%0a", "%0d%0a"]
+SEPARATORS = ["", ";", "%3B", "&", "%26", "%1a", "&&", "%26%26", "|", "%7C", "||", "%7C%7C", "%0a", "%0d%0a"]
 
 # The command injection suffixes.
 SUFFIXES = ["", "'", "\"", "&&", "%26%26", "|", "%7C", "||", "%7C%7C", " #", "//", "\\\\", "%26'", "%27", "%22", "%5C%5C", "%2F%2F"]
@@ -279,16 +367,18 @@ JUNK_COMBINATION = ["&&&", "|||", "|&&", "&|", "&;", "|;", "%7C;", "%26;", "%7C&
 EXECUTION_FUNCTIONS = ["exec", "system", "shell_exec", "passthru", "proc_open", "popen"]
 
 # The code injection prefixes.
-EVAL_PREFIXES = ["", "{${", ";", "'", ")", "')", "\")", "\".", "'.", ");}", "');}", "\");}"]
+EVAL_PREFIXES = [".", "", "{${", "\".", "'.", "", ";", "'", ")", "')", "\")", ");}", "');}", "\");}"]
 
 # The code injection separators.
 EVAL_SEPARATORS = ["", "%0a", "\\n", "%0d%0a", "\\r\\n"]
 
 # The code injection suffixes.
-EVAL_SUFFIXES = ["", "}}","\\\\", "//", "#", ".\"", ".'", ")}"]
+EVAL_SUFFIXES = ["", "}}", ".\"", ".'", "", "\\\\", "//", "#", ")}"]
 
-# The white-spaces
-WHITESPACE = ["%20"]
+# The default (url-ecoded) white-space.
+WHITESPACES = ["%20"]
+
+SINGLE_WHITESPACE = " "
 
 # Reference: http://www.w3.org/Protocols/HTTP/Object_Headers.html#uri
 URI_HTTP_HEADER = "URI"
@@ -375,19 +465,19 @@ SHADOW_FILE = "/etc/shadow"
 SYS_PASSES = FILE_READ + SHADOW_FILE 
 
 # Accepts 'YES','YE','Y','yes','ye','y'
-CHOICE_YES = ['yes','ye','y']
+CHOICE_YES = ['YES','YE','Y','yes','ye','y']
 
 # Accepts 'NO','N','no','n'
-CHOICE_NO = ['no','n']
+CHOICE_NO = ['NO','N','no','n']
 
 # Accepts 'QUIT','Q','quit','q'
-CHOICE_QUIT = ['q','quit']
+CHOICE_QUIT = ['QUIT','Q','quit','q']
 
 # Accepts 'W','w','U','u','Q','q'
-CHOICE_OS = ['w','u','q']
+CHOICE_OS = ['W','w','U','u','Q','q']
 
 # Accepts 'C','c','S','s','Q','q','a','A','n','N'
-CHOICE_PROCEED = ['c','s','q','a','n']
+CHOICE_PROCEED = ['C','c','S','s','Q','q','a','A','n','N']
 
 # Available alternative shells
 AVAILABLE_SHELLS = ["python"]
@@ -407,18 +497,18 @@ USER_AGENT_LIST = [
         "Opera/9.00 (Macintosh; PPC Mac OS X; U; es)",
         "Opera/12.80 (Windows NT 5.1; U; en) Presto/2.10.289 Version/12.02",
         # Mozilla Firefox
-        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:21.0) Gecko/20130331 Firefox/31.0",
-        "Mozilla/5.0 (Windows; U; Windows NT 5.1; fr; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13 (.NET CLR 3.0.04506.30)",
+        "Mozilla/5.0 (X11; Ubuntu; Linux x86_64; rv:21.0) Gecko/20131331 Firefox/31.0",
+        "Mozilla/5.0 (Windows; U; Windows NT 5.1; fr; rv:1.8.1.13) Gecko/20080311 Firefox/2.0.0.13 (.NET CLR 3.0.04506.31)",
         "Mozilla/5.0 (X11; Linux i686; rv:21.0) Gecko/20100101 Firefox/21.0",
-        "Mozilla/5.0 (MSIE 7.0; Macintosh; U; SunOS; X11; gu; SV1; InfoPath.2; .NET CLR 3.0.04506.30; .NET CLR 3.0.04506.648)",
+        "Mozilla/5.0 (MSIE 7.0; Macintosh; U; SunOS; X11; gu; SV1; InfoPath.2; .NET CLR 3.0.04506.31; .NET CLR 3.0.04506.648)",
         "Mozilla/5.0 (Windows NT 6.1; WOW64; Trident/7.0; AS; rv:11.0) like Gecko",
         "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/536.5 (KHTML, like Gecko) Chrome/19.0.1084.9 Safari/536.5",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.6; rv:9.0) Gecko/20100101 Firefox/9.0",
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_6_8) AppleWebKit/534.57.2 (KHTML, like Gecko) Version/4.0.5 Safari/531.22.7",
         "Mozilla/5.0 (Windows NT 5.1; rv:31.0) Gecko/20100101 Firefox/31.0",
         "Mozilla/5.0 (X11; U; Linux i686; zh-CN; rv:1.9.1.6) Gecko/20091216 Fedora/3.5.6-1.fc11 Firefox/3.5.6 GTB6",
-        "Mozilla/5.0 (X11; U; Linux i686 (x86_64); en-US; rv:1.9.1b3) Gecko/20090305 Firefox/3.1b3",
-        "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20130401 Firefox/31.0",
+        "Mozilla/5.0 (X11; U; Linux i686 (x86_64); en-US; rv:1.9.1b3) Gecko/20090315 Firefox/3.1b3",
+        "Mozilla/5.0 (Windows NT 6.1; WOW64; rv:21.0) Gecko/20131401 Firefox/31.0",
         "Mozilla/5.0 (Windows NT 5.1) AppleWebKit/534.34 (KHTML, like Gecko) Dooble/1.40 Safari/534.34",
         # Oldies 
         "Mozilla/4.0 (compatible; MSIE 6.0; Windows NT 5.0; de) Opera 8.0",
@@ -429,13 +519,17 @@ USER_AGENT_LIST = [
 
 # Mobile User Agents
 MOBILE_USER_AGENT_LIST = [
-        "Mozilla/5.0 (BlackBerry; U; BlackBerry 9900; en) AppleWebKit/534.11+ (KHTML, like Gecko) Version/7.1.0.346 Mobile Safari/534.11+",
-        "Mozilla/5.0 (Linux; U; Android 2.2; en-US; SGH-T959D Build/FROYO) AppleWebKit/533.1 (KHTML, like Gecko) Version/4.0 Mobile Safari/533.1",
-        "Mozilla/4.0 (compatible; MSIE 4.01; Windows CE; PPC; 240x320; HP iPAQ h6300)",
-        "Mozilla/5.0 (Linux; U; Android 4.0.3; de-ch; HTC Sensation Build/IML74K) AppleWebKit/534.30 (KHTML, like Gecko) Version/4.0 Mobile Safari/534.30",
-        "Mozilla/5.0 (iPhone; CPU iPhone OS 5_1 like Mac OS X) AppleWebKit/534.46 (KHTML, like Gecko) Version/5.1 Mobile/9B179 Safari/7534.48.3",
+        "Mozilla/5.0 (BB10; Kbd) AppleWebKit/537.35+ (KHTML, like Gecko) Version/10.3.3.2205 Mobile Safari/537.35+",
+        "Mozilla/5.0 (Linux; Android 7.0; SM-G931V Build/NRD90M) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/59.0.3171.125 Mobile Safari/537.36",
+        "Mozilla/4.0 (compatible; MSIE 4.01; Windows CE; PPC; 240x320; HP iPAQ h6310)",
+        "Mozilla/5.0 (Linux; Android 8.0.0; HTC 10 Build/OPR1.170623.027) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/69.0.3497.100 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; Android 4.4.4; HUAWEI H891L Build/HuaweiH891L) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/33.0.0.0 Mobile Safari/537.36",
+        "Mozilla/5.0 (iPhone; CPU iPhone OS 11_0 like Mac OS X) AppleWebKit/604.1.38 (KHTML, like Gecko) Version/11.0 Mobile/15A372 Safari/604.1",
+        "Mozilla/5.0 (Windows Phone 10.0; Android 6.0.1; Microsoft; Lumia 950) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/52.0.2743.116 Mobile Safari/537.36 Edge/15.14977",
         "Mozilla/5.0 (Linux; Android 4.1.1; Nexus 7 Build/JRO03D) AppleWebKit/535.19 (KHTML, like Gecko) Chrome/18.0.1025.166 Safari/535.19",
         "Mozilla/5.0 (SymbianOS/9.4; Series60/5.0 NokiaN97-1/10.0.012; Profile/MIDP-2.1 Configuration/CLDC-1.1; en-us) AppleWebKit/525 (KHTML, like Gecko) WicKed/7.1.12344",
+        "Mozilla/5.0 (Linux; Android 8.0.0; Pixel Build/OPR3.170623.013) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/63.0.3239.111 Mobile Safari/537.36",
+        "Mozilla/5.0 (Linux; U; Android 4.4.4; en-gb; MI 3W Build/KTU84P) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/39.0.0.0 Mobile Safari/537.36 XiaoMi/MiuiBrowser/2.1.1",
 ]
 
 # Default Scheme
@@ -462,7 +556,9 @@ CUSTOM_HEADER_INJECTION = False
 CUSTOM_HEADER_NAME = "" 
 
 # Valid URL format check
-VALID_URL_FORMAT = "https?://(?:www)?(?:[\w-]{2,255}(?:\.\w{2,6}){1,2})(?:/[\w&%?#-]{1,300})?"
+VALID_URL_FORMAT = "https?://(?:www)?(?:[\w-]{2,255}(?:\.\w{2,6}){1,2})(?:/[\w&%?#-]{1,310})?"
+
+VALID_URL = True
 
 # Accepted shell menu options
 SHELL_OPTIONS = [
@@ -493,15 +589,14 @@ PARAMETER_SPLITTING_REGEX = r'[,]'
 # Cookie delimiter
 PARAMETER_DELIMITER = "&"
 
-# Web-page encoding
-ENCODING = ""
+UNICODE_ENCODING = "utf8"
 
-DEFAULT_ENCODING = "utf-8"
+# Reference: http://en.wikipedia.org/wiki/ISO/IEC_8859-1
+DEFAULT_PAGE_ENCODING = "iso-8859-1"
 try:
-  unicode(DEFAULT_ENCODING, DEFAULT_ENCODING)
+  codecs.lookup(DEFAULT_PAGE_ENCODING)
 except LookupError:
-  # Reference: http://en.wikipedia.org/wiki/ISO/IEC_8859-1
-  DEFAULT_ENCODING = "iso-8859-1"
+  DEFAULT_PAGE_ENCODING = UNICODE_ENCODING
 
 # Character Sets List. 
 # A complete list of the standard encodings Python supports.
@@ -554,7 +649,7 @@ ENCODING_LIST = [
   "euc-kr",
   "gb2312",
   "gbk",
-  "gb18030",
+  "gb18031",
   "hz",
   "iso2022-jp",
   "iso2022-jp-1",
@@ -600,6 +695,9 @@ ENCODING_LIST = [
   "utf-8",
   "utf-8-sig"
  ]
+
+# Default value for HTTP Accept-Encoding header
+HTTP_ACCEPT_ENCODING_HEADER_VALUE = "gzip, deflate"
 
 # Default server banner
 SERVER_BANNER = ""
@@ -649,7 +747,7 @@ CRAWL_EXCLUDE_EXTENSIONS = [
   "s7z", "scm", "scpt", "sgi", "shar", "sil", "smv", "so", "sub", "swf", "tar", "tbz2", "tga", "tgz", "tif", "tiff", 
   "tlz", "ts", "ttf", "uvh", "uvi", "uvm", "uvp", "uvs", "uvu", "viv", "vob", "war", "wav", "wax", "wbmp", "wdp", "weba", 
   "webm", "webp", "whl", "wm", "wma", "wmv", "wmx", "woff", "woff2", "wvx", "xbm", "xif", "xls", "xlsx", "xlt", "xm", "xpi", 
-  "xpm", "xwd", "xz", "z", "zip", "zipx", "php"
+  "xpm", "xwd", "xz", "z", "zip", "zipx"
 ]
 
 TARGET_APPLICATION = ""
@@ -783,6 +881,7 @@ TAMPER_SCRIPTS = {
                   "space2plus": False,
                   "space2htab": False,
                   "space2vtab": False,
+                  "doublequotes": False,
                   "singlequotes": False,
                   "caret": False,
                   "multiplespaces": False,
@@ -791,7 +890,10 @@ TAMPER_SCRIPTS = {
                   "sleep2usleep": False,
                   "sleep2timeout": False,
                   "xforwardedfor": False,
-                  "dollaratsigns": False
+                  "dollaratsigns": False,
+                  "uninitializedvariable": False,
+                  "slash2env":False,
+                  "backticks":False
                  }
 
 # HTTP Errors
@@ -799,8 +901,26 @@ BAD_REQUEST = "400"
 UNAUTHORIZED_ERROR = "401"
 FORBIDDEN_ERROR = "403"
 NOT_FOUND_ERROR = "404"
+NOT_ALLOWED = "405"
 NOT_ACCEPTABLE_ERROR = "406"
 INTERNAL_SERVER_ERROR = "500"
+NOT_IMPLEMENTED = "501"
+BAD_GATEWAY = "502"
+SERVICE_UNAVAILABLE = "503"
+GATEWAY_TIMEOUT = "504"
+
+HTTP_ERROR_CODES = [  BAD_REQUEST, 
+                      UNAUTHORIZED_ERROR,
+                      FORBIDDEN_ERROR,
+                      NOT_FOUND_ERROR,
+                      NOT_ALLOWED,
+                      NOT_ACCEPTABLE_ERROR,
+                      INTERNAL_SERVER_ERROR,
+                      NOT_IMPLEMENTED,
+                      BAD_GATEWAY,
+                      SERVICE_UNAVAILABLE,
+                      GATEWAY_TIMEOUT
+                    ]
 
 # End line
 END_LINE = ["\r", "\n", "\r\n"]
@@ -828,6 +948,9 @@ CLI_HISTORY = ""
 # Check for multi encoded payloads
 MULTI_ENCODED_PAYLOAD = []
 
+# Default Timeout
+TIMEOUT = 31
+
 # Retries when the connection timeouts (Default: 3).
 MAX_RETRIES = 3
 
@@ -846,12 +969,14 @@ CHECK_INTERNET_ADDRESS = "http://ipinfo.io"
 # Check internet connection.
 CHECK_INTERNET = False
 
+UNAUTHORIZED = False
+
 # Multiple OS checks
 CHECK_BOTH_OS = False
 OS_CHECKS_NUM = 2
 
 # Options to explicitly mask in anonymous (unhandled exception) reports.
-SENSITIVE_OPTIONS = ["--data", "-d", "--cookie", "-p", "--url", "-u", "-x", "--auth-cred"]
+SENSITIVE_OPTIONS = ["--data", "-d", "--cookie", "-p", "--url", "-u", "-x", "--auth-cred", "-r", "-l"]
 
 # Github OAuth token used for creating an automatic issue for unhandled exceptions.
 GITHUB_REPORT_OAUTH_TOKEN = "YjNiYjdhZDBlYzM2MmM2NGEzYTAzZTc4ZDg1NmYwZTUyZGZlN2EyZQ=="
@@ -872,6 +997,15 @@ GOOGLE_ANALYTICS_COOKIE_PREFIX = "__UTM"
 # Default path for tamper scripts
 TAMPER_SCRIPTS_PATH = "src/core/tamper/"
 
+# Default path for settings.py file
+SETTINGS_PATH = os.path.abspath("src/utils/settings.py")
+
+# Period after last-update to start nagging (about the old revision).
+NAGGING_DAYS = 31
+
+LINUX_DEFAULT_DOC_ROOTS = ["/var/www/", "/var/www/html", "/var/www/htdocs", "/usr/local/apache2/htdocs", "/usr/local/www/data", "/var/apache2/htdocs", "/var/www/nginx-default", "/srv/www/htdocs"]  # Reference: https://wiki.apache.org/httpd/DistrosDefaultLayout
+DEFINED_WEBROOT = False
+
 # HTTP Headers
 COOKIE = "Cookie"
 HOST = "Host"
@@ -881,5 +1015,15 @@ HTTP_ACCEPT_HEADER = "Accept"
 
 # HTTP Headers values
 HTTP_ACCEPT_HEADER_VALUE = "*/*"
+
+# Regular expression used for ignoring some special chars
+IGNORE_SPECIAL_CHAR_REGEX = "[^/(A-Za-z0-9.:,_]+"
+
+PERFORM_CRACKING = False
+
+PAGE_COMPRESSION = None
+
+# Force usage of given HTTP method (e.g. PUT).
+HTTP_METHOD = ""
 
 # eof

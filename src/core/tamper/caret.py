@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -39,7 +39,7 @@ def tamper(payload):
             re.sub(r'([b-zD-Z])', r'^\1', long_string) : long_string.replace("^","")
           }
     payload = re.sub(r'([b-zD-Z])', r'^\1', payload)
-    rep = dict((re.escape(k), v) for k, v in rep.iteritems())
+    rep = dict((re.escape(k), v) for k, v in rep.items())
     pattern = re.compile("|".join(rep.keys()))
     payload = pattern.sub(lambda m: rep[re.escape(m.group(0))], payload)
     return payload

@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -16,7 +16,7 @@ For more see the file 'readme/COPYING' for copying permission.
 import re
 import os
 import sys
-import urllib2
+
 
 from src.utils import menu
 from src.utils import settings
@@ -55,19 +55,19 @@ def file_read(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, 
     shell = "".join(str(p) for p in shell)
   except TypeError:
     pass
-  if settings.VERBOSITY_LEVEL <= 1 and not menu.options.ignore_session and _:
-    print ""
+  if settings.VERBOSITY_LEVEL == 0 and _:
+    print(settings.SINGLE_WHITESPACE)
   if shell:
-    success_msg = "The contents of file '"  
-    success_msg += file_to_read + Style.RESET_ALL + Style.BRIGHT 
-    success_msg += "'" + Style.RESET_ALL + " : "
-    sys.stdout.write(settings.print_success_msg(success_msg))
+    info_msg = "The contents of file '"  
+    info_msg += file_to_read + Style.RESET_ALL + Style.BRIGHT 
+    info_msg += "'" + Style.RESET_ALL + " : "
+    sys.stdout.write(settings.print_bold_info_msg(info_msg))
     sys.stdout.flush()
-    print shell
+    print(shell)
     output_file = open(filename, "a")
-    success_msg = "The contents of file '"
-    success_msg += file_to_read + "' : " + shell + ".\n"
-    output_file.write(re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + success_msg)
+    info_msg = "The contents of file '"
+    info_msg += file_to_read + "' : " + shell + ".\n"
+    output_file.write(re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + info_msg)
     output_file.close()
   else:
     warn_msg = "It seems that you don't have permissions "
@@ -106,7 +106,7 @@ def file_write(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec,
   # Execute command
   if settings.TARGET_OS == "win":
     from src.core.injections.results_based.techniques.classic import cb_injector
-    whitespace = settings.WHITESPACE[0]
+    whitespace = settings.WHITESPACES[0]
     dest_to_write = dest_to_write.replace("\\","/")
     # Find path
     path = os.path.dirname(dest_to_write)
@@ -145,19 +145,19 @@ def file_write(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec,
     shell = "".join(str(p) for p in shell)
     # Check if file exists
     cmd = "echo $(ls " + dest_to_write + ")"
-  print ""
+  print(settings.SINGLE_WHITESPACE)
   check_how_long, output = tfb_injector.injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, http_request_method, url, vuln_parameter, OUTPUT_TEXTFILE, alter_shell, filename, url_time_response)
   shell = output 
   try:
     shell = "".join(str(p) for p in shell)
   except TypeError:
     pass
-  if settings.VERBOSITY_LEVEL <= 1 and not menu.options.ignore_session and _:
-    print ""
+  if settings.VERBOSITY_LEVEL == 0 and _:
+    print(settings.SINGLE_WHITESPACE)
   if shell:
-    success_msg = "The '" +  shell + Style.RESET_ALL 
-    success_msg += Style.BRIGHT + "' file was created successfully!\n" 
-    sys.stdout.write("\n" + settings.print_success_msg(success_msg))
+    info_msg = "The '" +  shell + Style.RESET_ALL 
+    info_msg += Style.BRIGHT + "' file was created successfully!\n" 
+    sys.stdout.write("\n" + settings.print_bold_info_msg(info_msg))
     sys.stdout.flush()
   else:
     warn_msg = "It seems that you don't have permissions to "
@@ -176,13 +176,13 @@ def file_upload(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec
     file_to_upload = menu.options.file_upload
     # check if remote file exists.
     try:
-      urllib2.urlopen(file_to_upload)
-    except urllib2.HTTPError, err_msg:
+      _urllib.request.urlopen(file_to_upload, timeout=settings.TIMEOUT)
+    except _urllib.error.HTTPError as err_msg:
       warn_msg = "It seems that the '" + file_to_upload + "' file, does not exist. (" +str(err_msg)+ ")"
       sys.stdout.write("\n" + settings.print_warning_msg(warn_msg) + "\n")
       sys.stdout.flush()
       raise SystemExit()
-    except ValueError, err_msg:
+    except ValueError as err_msg:
       err_msg = str(err_msg[0]).capitalize() + str(err_msg)[1]
       sys.stdout.write(settings.print_critical_msg(err_msg) + "\n")
       sys.stdout.flush()
@@ -204,19 +204,19 @@ def file_upload(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec
       cmd = "dir " + dest_to_upload + ")"
     else:  
       cmd = "echo $(ls " + dest_to_upload + ")"
-    print ""  
+    print(settings.SINGLE_WHITESPACE)  
     check_how_long, output = tfb_injector.injection(separator, maxlen, TAG, cmd, prefix, suffix, whitespace, timesec, http_request_method, url, vuln_parameter, OUTPUT_TEXTFILE, alter_shell, filename, url_time_response)
     shell = output 
     try:
       shell = "".join(str(p) for p in shell)
     except TypeError:
       pass
-    if settings.VERBOSITY_LEVEL <= 1 and not menu.options.ignore_session and _:
-      print ""
+    if settings.VERBOSITY_LEVEL == 0 and _:
+      print(settings.SINGLE_WHITESPACE)
     if shell:
-      success_msg = "The '" +  shell + Style.RESET_ALL 
-      success_msg += Style.BRIGHT + "' file was uploaded successfully!"
-      sys.stdout.write("\n" + settings.print_success_msg(success_msg) + "\n")
+      info_msg = "The '" +  shell + Style.RESET_ALL 
+      info_msg += Style.BRIGHT + "' file was uploaded successfully!"
+      sys.stdout.write("\n" + settings.print_bold_info_msg(info_msg) + "\n")
       sys.stdout.flush()
     else:
       warn_msg = "It seems that you don't have permissions to "

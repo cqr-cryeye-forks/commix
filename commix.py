@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -26,23 +26,23 @@ except ImportError:
   raise SystemExit()
 
 # Main
+def main():
+  import src.core.main
+
+# Main
 if __name__ == '__main__':
   try:
-    import src.core.main
-
+    main()
   except SystemExit:
     import sys
     raise SystemExit() 
-
   except KeyboardInterrupt:
     import sys
     raise SystemExit() 
-
   except IndentationError as err_msg:
     from src.utils import settings
     print(settings.print_critical_msg(err_msg) + ".\n")
     raise SystemExit() 
-
   except:
     from src.utils import common
     common.unhandled_exception()

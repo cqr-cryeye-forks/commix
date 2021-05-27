@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -12,71 +12,23 @@ the Free Software Foundation, either version 3 of the License, or
 
 For more see the file 'readme/COPYING' for copying permission.
 """
-
 import os
 import re
 import sys
 import time
-import urllib
 import sqlite3
 import datetime
-
 from src.utils import menu
 from src.utils import settings
 from src.utils import session_handler
-
+from src.core.injections.controller import checks
+from src.thirdparty.six.moves import urllib as _urllib
 from src.thirdparty.colorama import Fore, Back, Style, init
-
-readline_error = False
-if settings.IS_WINDOWS:
-  try:
-    import readline
-  except ImportError:
-    try:
-      import pyreadline as readline
-    except ImportError:
-      readline_error = True
-else:
-  try:
-    import readline
-    if getattr(readline, '__doc__', '') is not None and 'libedit' in getattr(readline, '__doc__', ''):
-      import gnureadline as readline
-  except ImportError:
-    try:
-      import gnureadline as readline
-    except ImportError:
-      readline_error = True
-pass
-
 
 """
 1. Generate injection logs (logs.txt) in "./ouput" file.
 2. Check for logs updates and apply if any!
 """
-
-"""
-Save command history.
-"""
-def save_cmd_history():
-  try:
-    cli_history = os.path.expanduser(settings.CLI_HISTORY)
-    if os.path.exists(cli_history):
-      readline.write_history_file(cli_history)
-  except (IOError, AttributeError) as e:
-    warn_msg = "There was a problem writing the history file '" + cli_history + "'."
-    print settings.print_warning_msg(warn_msg)
-
-"""
-Load commands from history.
-"""
-def load_cmd_history():
-  try:
-    cli_history = os.path.expanduser(settings.CLI_HISTORY)
-    if os.path.exists(cli_history):
-      readline.read_history_file(cli_history)
-  except (IOError, AttributeError) as e:
-    warn_msg = "There was a problem loading the history file '" + cli_history + "'."
-    print settings.print_warning_msg(warn_msg)
 
 """
 Create log files
@@ -90,14 +42,15 @@ def create_log_file(url, output_dir):
     host = parts[1].split('/', 1)[0]
   except IndexError:
     host = parts[0].split('/', 1)[0]
-  except OSError, err_msg:
+  except OSError as err_msg:
     try:
-      error_msg = str(err_msg.args[0]).split("] ")[1] + "."
-    except:
-      error_msg = str(err_msg.args[0]) + "."
-    print settings.print_critical_msg(error_msg)
+      error_msg = str(err_msg).split("] ")[1] + "."
+    except IndexError:
+      error_msg = str(err_msg) + "."
+    print(settings.print_critical_msg(error_msg))
     raise SystemExit()
-      
+
+
   # Check if port is defined to host.
   if ":" in host:
     host = host.replace(":","_")
@@ -106,12 +59,12 @@ def create_log_file(url, output_dir):
   except:
     try:
       os.mkdir(output_dir + host + "/")
-    except Exception as err_msg:
+    except OSError as err_msg:
       try:
-        error_msg = str(err_msg.args[0]).split("] ")[1] + "."
-      except:
-        error_msg = str(err_msg.args[0]) + "."
-      print settings.print_critical_msg(error_msg)
+        error_msg = str(err_msg).split("] ")[1] + "."
+      except IndexError:
+        error_msg = str(err_msg) + "."
+      print(settings.print_critical_msg(error_msg))
       raise SystemExit()
 
   # Create cli history file if does not exist.
@@ -126,13 +79,13 @@ def create_log_file(url, output_dir):
        err_msg = "The provided session file ('" + \
                     menu.options.session_file + \
                     "') does not exist." 
-       print settings.print_critical_msg(err_msg)
+       print(settings.print_critical_msg(err_msg))
        raise SystemExit()
   else:  
     settings.SESSION_FILE = output_dir + host + "/" + "session" + ".db"
 
   # Load command history
-  load_cmd_history()
+  checks.load_cmd_history()
 
   # The logs filename construction.
   filename = output_dir + host + "/" + settings.OUTPUT_FILE
@@ -143,14 +96,14 @@ def create_log_file(url, output_dir):
       datetime.datetime.fromtimestamp(time.time()).strftime('%m/%d/%Y' + \
       " at " + '%H:%M:%S' + " |"))
     output_file.write("\n" + "=" * 37)
-    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + "Tested URL : " + url)
+    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + "Tested URL : " + url)
     output_file.close()
-  except IOError, err_msg:
+  except IOError as err_msg:
     try:
       error_msg = str(err_msg.args[0]).split("] ")[1] + "."
     except:
       error_msg = str(err_msg.args[0]) + "."
-    print settings.print_critical_msg(error_msg)
+    print(settings.print_critical_msg(error_msg))
     raise SystemExit()
       
   return filename
@@ -162,8 +115,8 @@ def add_type_and_technique(export_injection_info, filename, injection_type, tech
   if export_injection_info == False:
     settings.SHOW_LOGS_MSG = True
     output_file = open(filename, "a")
-    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + "Type: " + injection_type.title())
-    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + "Technique: " + technique.title())
+    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + "Type: " + injection_type.title())
+    output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + "Technique: " + technique.title())
     output_file.close()
     export_injection_info = True
 
@@ -178,7 +131,7 @@ def add_parameter(vp_flag, filename, the_type, header_name, http_request_method,
     header_name = " ("+ header_name[1:] + ") " + vuln_parameter
   if header_name[1:] == "":
     header_name = " ("+ http_request_method + ") " + vuln_parameter
-  output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + the_type[1:].title() + ": " + header_name[1:])
+  output_file.write("\n" + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + the_type[1:].title() + ": " + header_name[1:])
   vp_flag = False
   output_file.write("\n")
   output_file.close()
@@ -189,7 +142,7 @@ Add any payload in log files.
 def update_payload(filename, counter, payload):
   output_file = open(filename, "a")
   if "\n" in payload:
-    output_file.write("    (" +str(counter)+ ") Payload: " + re.sub("%20", " ", urllib.unquote_plus(payload.replace("\n", "\\n"))) + "\n")
+    output_file.write("    (" +str(counter)+ ") Payload: " + re.sub("%20", " ", _urllib.parse.unquote_plus(payload.replace("\n", "\\n"))) + "\n")
   else:
     output_file.write("    (" +str(counter)+ ") Payload: " + payload.replace("%20", " ") + "\n")
   output_file.close()
@@ -201,7 +154,7 @@ execution output result in log files.
 def executed_command(filename, cmd, output):
   try:
     output_file = open(filename, "a")
-    output_file.write(re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.SUCCESS_SIGN) + "Executed command: " +  cmd + "\n")
+    output_file.write(re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_BOLD_SIGN) + "Executed command: " +  cmd + "\n")
     output_file.write("    " + re.compile(re.compile(settings.ANSI_COLOR_REMOVAL)).sub("",settings.INFO_SIGN) + "Execution output: " +  output + "\n")
     output_file.close()
   except TypeError:
@@ -213,7 +166,7 @@ Fetched data logged to text files.
 def logs_notification(filename):
   # Save command history.
   info_msg = "Fetched data logged to text files under '" + os.getcwd() + "/" + filename + "'."
-  print settings.print_info_msg(info_msg)
+  print(settings.print_info_msg(info_msg))
 
 """
 Log all HTTP traffic into a textual file.
@@ -227,7 +180,7 @@ def log_traffic(header):
 Print logs notification.
 """
 def print_logs_notification(filename, url):
-  save_cmd_history()
+  checks.save_cmd_history()
   if settings.SHOW_LOGS_MSG == True:
     logs_notification(filename)
   if url:

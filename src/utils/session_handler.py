@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -18,11 +18,9 @@ import sys
 import time
 import base64
 import sqlite3
-import urllib2
-
 from src.utils import menu
 from src.utils import settings
-
+from src.thirdparty.six.moves import input as _input
 from src.thirdparty.colorama import Fore, Back, Style, init
 
 """
@@ -42,39 +40,37 @@ def table_name(url):
 Ignore session.
 """
 def ignore(url):
-  info_msg = "Ignoring the stored session from the session file... "
-  sys.stdout.write(settings.print_info_msg(info_msg))
-  sys.stdout.flush()
   if os.path.isfile(settings.SESSION_FILE):
-    print "[ " + Fore.GREEN + "SUCCEED" + Style.RESET_ALL + " ]"
+    if settings.VERBOSITY_LEVEL != 0:
+      debug_msg = "Ignoring the stored session from the session file due to '--ignore-session' switch."
+      print(settings.print_debug_msg(debug_msg))
   else:
-    print "[ " + Fore.RED + "FAILED" + Style.RESET_ALL + " ]"
-    err_msg = "The session file does not exist."
-    print settings.print_critical_msg(err_msg)
+    if settings.VERBOSITY_LEVEL != 0:
+      warn_msg = "Skipping ignoring the stored session, as the session file not exist."
+      print(settings.print_warning_msg(warn_msg))
 
 """
 Flush session.
 """
 def flush(url):
-  info_msg = "Flushing the stored session from the session file... "
-  sys.stdout.write(settings.print_info_msg(info_msg))
-  sys.stdout.flush()
-  if not os.path.isfile(settings.SESSION_FILE):
-    print "[ " + Fore.RED + "FAILED" + Style.RESET_ALL + " ]"
-    err_msg = "The session file does not exist."
-    print settings.print_critical_msg(err_msg)
-  else:
+  if os.path.isfile(settings.SESSION_FILE):
+    if settings.VERBOSITY_LEVEL != 0:
+      debug_msg = "Flushing the stored session from the session file."
+      print(settings.print_debug_msg(debug_msg))
     try:
       conn = sqlite3.connect(settings.SESSION_FILE)
       tables = list(conn.execute("SELECT name FROM sqlite_master WHERE type is 'table'"))
       conn.executescript(';'.join(["DROP TABLE IF EXISTS %s" %i for i in tables]))
       conn.commit()
       conn.close()
-      print "[ " + Fore.GREEN + "SUCCEED" + Style.RESET_ALL + " ]"
-    except sqlite3.OperationalError, err_msg:
-      print "[ " + Fore.RED + "FAILED" + Style.RESET_ALL + " ]"
+    except sqlite3.OperationalError as err_msg:
+      print(settings.SINGLE_WHITESPACE)
       err_msg = "Unable to flush the session file." + str(err_msg).title()
-      print settings.print_critical_msg(err_msg)    
+      print(settings.print_critical_msg(err_msg))
+  else:
+    if settings.VERBOSITY_LEVEL != 0:
+      warn_msg = "Skipping flushing the stored session, as the session file not exist."
+      print(settings.print_warning_msg(warn_msg))
 
 """
 Clear injection point records 
@@ -89,8 +85,8 @@ def clear(url):
                    table_name(url) + "_ip GROUP BY technique);")
       conn.commit()
       conn.close()
-  except sqlite3.OperationalError, err_msg:
-    print settings.print_critical_msg(err_msg)
+  except sqlite3.OperationalError as err_msg:
+    print(settings.print_critical_msg(err_msg))
   except:
     settings.LOAD_SESSION = False
     return False
@@ -121,17 +117,17 @@ def injection_point_importation(url, technique, injection_type, separator, shell
     if settings.INJECTION_CHECKER == False:
       settings.INJECTION_CHECKER = True
       
-  except sqlite3.OperationalError, err_msg:
+  except sqlite3.OperationalError as err_msg:
     err_msg = str(err_msg)[:1].upper() + str(err_msg)[1:] + "."
     err_msg += " You are advised to rerun with switch '--flush-session'."
-    print settings.print_critical_msg(err_msg)
+    print(settings.print_critical_msg(err_msg))
     raise SystemExit()
 
-  except sqlite3.DatabaseError, err_msg:
+  except sqlite3.DatabaseError as err_msg:
     err_msg = "An error occurred while accessing session file ('"
     err_msg += settings.SESSION_FILE + "'). "
     err_msg += "If the problem persists use the '--flush-session' option."
-    print "\n" + settings.print_critical_msg(err_msg)
+    print("\n" + settings.print_critical_msg(err_msg))
     raise SystemExit()
 
 """
@@ -163,8 +159,8 @@ def applied_techniques(url, http_request_method):
       values += session[0][:1]
     applied_techniques = ''.join(list(set(values)))
     return applied_techniques
-  except sqlite3.OperationalError, err_msg:
-    #print settings.print_critical_msg(err_msg)
+  except sqlite3.OperationalError as err_msg:
+    #print(settings.print_critical_msg(err_msg))
     settings.LOAD_SESSION = False
     return False
   except:
@@ -193,8 +189,8 @@ def applied_levels(url, http_request_method):
     for session in applied_level:
       return session[0]
 
-  except sqlite3.OperationalError, err_msg:
-    #print settings.print_critical_msg(err_msg)
+  except sqlite3.OperationalError as err_msg:
+    #print(settings.print_critical_msg(err_msg))
     settings.LOAD_SESSION = False
     return False
   except:
@@ -266,8 +262,8 @@ def injection_point_exportation(url, http_request_method):
     else:
       no_such_table = True
       pass
-  except sqlite3.OperationalError, err_msg:
-    #print settings.print_critical_msg(err_msg)
+  except sqlite3.OperationalError as err_msg:
+    #print(settings.print_critical_msg(err_msg))
     settings.LOAD_SESSION = False
     return False
   except:
@@ -281,19 +277,18 @@ def notification(url, technique, injection_type):
   try:
     if settings.LOAD_SESSION == True:
       info_msg = "A previously stored session has been held against that host."
-      print settings.print_info_msg(info_msg)
+      print(settings.print_info_msg(info_msg))
       while True:
         if not menu.options.batch:
           question_msg = "Do you want to resume to the "
           question_msg += "(" + injection_type.split(" ")[0] + ") "
           question_msg += technique.rsplit(' ', 2)[0] 
           question_msg += " injection point? [Y/n] > "
-          sys.stdout.write(settings.print_question_msg(question_msg))
-          settings.LOAD_SESSION = sys.stdin.readline().replace("\n","").lower()
+          settings.LOAD_SESSION = _input(settings.print_question_msg(question_msg))
         else:
           settings.LOAD_SESSION = ""  
         if len(settings.LOAD_SESSION) == 0:
-           settings.LOAD_SESSION = "y"
+           settings.LOAD_SESSION = "Y"
         if settings.LOAD_SESSION in settings.CHOICE_YES:
           return True
         elif settings.LOAD_SESSION in settings.CHOICE_NO:
@@ -301,8 +296,7 @@ def notification(url, technique, injection_type):
           if technique[:1] != "c":
             while True:
               question_msg = "Which technique do you want to re-evaluate? [(C)urrent/(a)ll/(n)one] > "
-              sys.stdout.write(settings.print_question_msg(question_msg))
-              proceed_option = sys.stdin.readline().replace("\n","").lower()
+              proceed_option = _input(settings.print_question_msg(question_msg))
               if len(proceed_option) == 0:
                  proceed_option = "c"
               if proceed_option.lower() in settings.CHOICE_PROCEED :
@@ -318,7 +312,7 @@ def notification(url, technique, injection_type):
                   pass  
               else:
                 err_msg = "'" +  proceed_option + "' is not a valid answer."   
-                print settings.print_error_msg(err_msg)
+                print(settings.print_error_msg(err_msg))
                 pass   
           if settings.SESSION_APPLIED_TECHNIQUES:
             menu.options.tech = ''.join(settings.AVAILABLE_TECHNIQUES)
@@ -327,10 +321,10 @@ def notification(url, technique, injection_type):
           raise SystemExit()
         else:
           err_msg = "'" + settings.LOAD_SESSION + "' is not a valid answer."  
-          print settings.print_error_msg(err_msg)
+          print(settings.print_error_msg(err_msg))
           pass
-  except sqlite3.OperationalError, err_msg:
-    print settings.print_critical_msg(err_msg)
+  except sqlite3.OperationalError as err_msg:
+    print(settings.print_critical_msg(err_msg))
 
 """
 Check for specific stored parameter.
@@ -356,36 +350,40 @@ def store_cmd(url, cmd, shell, vuln_parameter):
       conn.execute("CREATE TABLE IF NOT EXISTS " + table_name(url) + "_ir" + \
                    "(cmd VARCHAR, output VARCHAR, vuln_parameter VARCHAR);")
       if settings.TESTABLE_PARAMETER:
-        conn.execute("INSERT INTO " + table_name(url) + "_ir(cmd, output, vuln_parameter) "\
+        conn.execute("INSERT INTO " + table_name(url) + "_ir(cmd, output, vuln_parameter) " \
                      "VALUES(?,?,?)", \
-                     (str(base64.b64encode(cmd)), str(base64.b64encode(shell)), str(vuln_parameter)))
+                     (str(base64.b64encode(cmd.encode(settings.UNICODE_ENCODING)).decode()), \
+                      str(base64.b64encode(shell.encode(settings.UNICODE_ENCODING)).decode()), \
+                      str(vuln_parameter)))
       else:
         conn.execute("INSERT INTO " + table_name(url) + "_ir(cmd, output, vuln_parameter) "\
                      "VALUES(?,?,?)", \
-                     (str(base64.b64encode(cmd)), str(base64.b64encode(shell)), str(settings.HTTP_HEADER)))
+                     (str(base64.b64encode(cmd.encode(settings.UNICODE_ENCODING)).decode()), \
+                      str(base64.b64encode(shell.encode(settings.UNICODE_ENCODING)).decode()), \
+                      str(settings.HTTP_HEADER)))
       conn.commit()
       conn.close() 
-  except sqlite3.OperationalError, err_msg:
-    print settings.print_critical_msg(err_msg)
-  except TypeError, err_msg:
+  except sqlite3.OperationalError as err_msg:
+    print(settings.print_critical_msg(err_msg))
+  except TypeError as err_msg:
     pass
 
 """
 Export successful command execution outputs from session file.
 """
 def export_stored_cmd(url, cmd, vuln_parameter):
-  try:  
+  try:
     if not menu.options.flush_session:
       conn = sqlite3.connect(settings.SESSION_FILE)
       output = None
       conn = sqlite3.connect(settings.SESSION_FILE)
       if settings.TESTABLE_PARAMETER:
         cursor = conn.execute("SELECT output FROM " + table_name(url) + \
-                              "_ir WHERE cmd='" + base64.b64encode(cmd) + "' AND "\
+                              "_ir WHERE cmd='" + base64.b64encode(cmd.encode(settings.UNICODE_ENCODING)).decode() + "' AND "\
                               "vuln_parameter= '" + vuln_parameter + "';").fetchall()
       else:
         cursor = conn.execute("SELECT output FROM " + table_name(url) + \
-                            "_ir WHERE cmd='" + base64.b64encode(cmd) + "' AND "\
+                            "_ir WHERE cmd='" + base64.b64encode(cmd.encode(settings.UNICODE_ENCODING)).decode() + "' AND "\
                             "vuln_parameter= '" +  settings.HTTP_HEADER + "';").fetchall()
 
       conn.commit()
@@ -393,11 +391,14 @@ def export_stored_cmd(url, cmd, vuln_parameter):
 
       for session in cursor:
         output = base64.b64decode(session[0])
-      return output
+      try:  
+        return output.decode(settings.UNICODE_ENCODING)
+      except AttributeError:
+        return output  
     else:
       no_such_table = True
       pass
-  except sqlite3.OperationalError, err_msg:
+  except sqlite3.OperationalError as err_msg:
     pass
 
 """
@@ -416,13 +417,13 @@ def import_valid_credentials(url, authentication_type, admin_panel, username, pa
                  str(username), str(password)))
     conn.commit()
     conn.close()
-  except sqlite3.OperationalError, err_msg:
-    print settings.print_critical_msg(err_msg)
-  except sqlite3.DatabaseError, err_msg:
+  except sqlite3.OperationalError as err_msg:
+    print(settings.print_critical_msg(err_msg))
+  except sqlite3.DatabaseError as err_msg:
     err_msg = "An error occurred while accessing session file ('"
     err_msg += settings.SESSION_FILE + "'). "
     err_msg += "If the problem persists use the '--flush-session' option."
-    print "\n" + settings.print_critical_msg(err_msg)
+    print("\n" + settings.print_critical_msg(err_msg))
     raise SystemExit()
 
 
@@ -444,7 +445,7 @@ def export_valid_credentials(url, authentication_type):
     else:
       no_such_table = True
       pass
-  except sqlite3.OperationalError, err_msg:
+  except sqlite3.OperationalError as err_msg:
     pass
 
 # eof

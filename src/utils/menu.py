@@ -3,7 +3,7 @@
 
 """
 This file is part of Commix Project (https://commixproject.com).
-Copyright (c) 2014-2019 Anastasios Stasinopoulos (@ancst).
+Copyright (c) 2014-2021 Anastasios Stasinopoulos (@ancst).
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -15,11 +15,10 @@ For more see the file 'readme/COPYING' for copying permission.
 
 import os
 import sys
-
+from src.utils import settings
 from optparse import OptionGroup
 from optparse import OptionParser
-
-from src.utils import settings
+from src.thirdparty.six.moves import input as _input
 from src.thirdparty.colorama import Fore, Back, Style, init
 
 # Use Colorama to make Termcolor work on Windows too :)
@@ -30,7 +29,7 @@ if settings.IS_WINDOWS:
 The commix's banner.
 """
 def banner():
-  print """                                      __           
+  print("""                                      __           
    ___   ___     ___ ___     ___ ___ /\_\   __  _   
  /`___\ / __`\ /' __` __`\ /' __` __`\/\ \ /\ \/'\  """ + Style.BRIGHT + Style.UNDERLINE + settings.VERSION + Style.RESET_ALL + """
 /\ \__//\ \/\ \/\ \/\ \/\ \/\ \/\ \/\ \ \ \\\/>  </  
@@ -41,7 +40,7 @@ def banner():
 """ + Style.BRIGHT + settings.DESCRIPTION_FULL + Style.RESET_ALL + """
 Copyright © """ + settings.YEAR + """ """ + settings.AUTHOR + Style.RESET_ALL + """ (""" + Fore.LIGHTRED_EX  + settings.AUTHOR_TWITTER + Style.RESET_ALL + """)
 +--
-"""
+""")
 
 _ = os.path.normpath(sys.argv[0])
 
@@ -109,6 +108,12 @@ general.add_option("--batch",
                 default=False,
                 help="Never ask for user input, use the default behaviour.")
 
+general.add_option("--skip-heuristics",
+                action="store_true",
+                dest="skip_heuristics",
+                default=False,
+                help="Skip heuristic detection for code injection.")
+
 general.add_option("--encoding",
                 action="store",
                 dest="encoding",
@@ -153,7 +158,8 @@ target.add_option("-r",
                 dest="requestfile",
                 help="Load HTTP request from a file.")
 
-target.add_option("--crawl", 
+target.add_option("--crawl",
+                default=0,
                 dest="crawldepth",
                 type="int",
                 help="Crawl the website starting from the target URL (1-2, Default: " + str(settings.DEFAULT_CRAWLDEPTH_LEVEL) + ").")
@@ -161,6 +167,10 @@ target.add_option("--crawl",
 target.add_option("-x",
                 dest="sitemap_url",
                 help="Parse target(s) from remote sitemap(.xml) file.")
+
+target.add_option("--method",
+                dest="method",
+                help="Force usage of given HTTP method (e.g. PUT)")
 
 # Request options
 request = OptionGroup(parser,  Style.BRIGHT + Style.UNDERLINE + "Request" + Style.RESET_ALL, 
@@ -264,11 +274,11 @@ request.add_option("--auth-cred",
                 dest="auth_cred",
                 help="HTTP authentication credentials (e.g. 'admin:admin').")
 
-request.add_option("--ignore-401",
-                action="store_true",
-                dest="ignore_401",
+request.add_option("--ignore-code",
+                action="store",
+                dest="ignore_code",
                 default=False,
-                help="Ignore HTTP error 401 (Unauthorized).")
+                help="Ignore (problematic) HTTP error code (e.g. 401).")
 
 request.add_option("--force-ssl",
                 action="store_true",
@@ -281,6 +291,13 @@ request.add_option("--ignore-redirects",
                 dest="ignore_redirects",
                 default=False,
                 help="Ignore redirection attempts.")
+
+request.add_option("--timeout",
+                action="store",
+                dest="timeout",
+                default=False,
+                type="int",
+                help="Seconds to wait before timeout connection (default 30).")
 
 request.add_option("--retries",
                 action="store",
@@ -424,6 +441,7 @@ injection.add_option("--prefix",
 
 injection.add_option("--technique", 
                 action="store",
+                default="cetf",
                 dest="tech",
                 help="Specify injection technique(s) to use.")
 
@@ -439,12 +457,14 @@ injection.add_option("--maxlen",
                 help="Set the max length of output for time-related injection techniques (Default: " + str(settings.MAXLEN) + " chars).")
 
 injection.add_option("--delay", 
+                default=0,
                 action="store",
                 type="int",
                 dest="delay",
                 help="Seconds to delay between each HTTP request.")
 
-injection.add_option("--time-sec", 
+injection.add_option("--time-sec",
+                default=1,
                 action="store",
                 type="int",
                 dest="timesec",
@@ -491,12 +511,6 @@ injection.add_option("--msf-path",
                 dest="msf_path",
                 default=False,
                 help="Set a local path where metasploit is installed.")
-
-injection.add_option("--backticks", 
-                action="store_true",
-                dest="enable_backticks",
-                default=False,
-                help="Use backticks instead of \"$()\", for commands substitution.")
 
 # Detection options
 detection = OptionGroup(parser, Style.BRIGHT + Style.UNDERLINE + "Detection" + Style.RESET_ALL, "These options can be "
@@ -598,7 +612,7 @@ def _(self, *args):
     return _
 
 parser.formatter._format_option_strings = parser.formatter.format_option_strings
-parser.formatter.format_option_strings = type(parser.formatter.format_option_strings)(_, parser, type(parser))
+parser.formatter.format_option_strings = type(parser.formatter.format_option_strings)(_, parser)
 
 option = parser.get_option("-h")
 option.help = option.help.capitalize().replace("Show this help message and exit", "Show help and exit.")
@@ -615,20 +629,20 @@ settings.sys_argv_errors()
 The "os_shell" available options.
 """
 def os_shell_options():
-      print """
+      print("""
 ---[ """ + Style.BRIGHT + Fore.BLUE + """Available options""" + Style.RESET_ALL + """ ]---     
 Type '""" + Style.BRIGHT + """?""" + Style.RESET_ALL + """' to get all the available options.
 Type '""" + Style.BRIGHT + """back""" + Style.RESET_ALL + """' to move back from the current context.
 Type '""" + Style.BRIGHT + """quit""" + Style.RESET_ALL + """' (or use <Ctrl-C>) to quit commix.
 Type '""" + Style.BRIGHT + """reverse_tcp""" + Style.RESET_ALL + """' to get a reverse TCP connection.
 Type '""" + Style.BRIGHT + """bind_tcp""" + Style.RESET_ALL + """' to set a bind TCP connection.
-"""
+""")
 
 """
 The "reverse_tcp" available options.
 """
 def reverse_tcp_options():
-      print """
+      print("""
 ---[ """ + Style.BRIGHT + Fore.BLUE + """Available options""" + Style.RESET_ALL + """ ]---     
 Type '""" + Style.BRIGHT + """?""" + Style.RESET_ALL + """' to get all the available options.
 Type '""" + Style.BRIGHT + """set""" + Style.RESET_ALL + """' to set a context-specific variable to a value.
@@ -636,13 +650,13 @@ Type '""" + Style.BRIGHT + """back""" + Style.RESET_ALL + """' to move back from
 Type '""" + Style.BRIGHT + """quit""" + Style.RESET_ALL + """' (or use <Ctrl-C>) to quit commix.
 Type '""" + Style.BRIGHT + """os_shell""" + Style.RESET_ALL + """' to get into an operating system command shell.
 Type '""" + Style.BRIGHT + """bind_tcp""" + Style.RESET_ALL + """' to set a bind TCP connection.
-"""
+""")
 
 """
 The "bind_tcp" available options.
 """
 def bind_tcp_options():
-      print """
+      print("""
 ---[ """ + Style.BRIGHT + Fore.BLUE + """Available options""" + Style.RESET_ALL + """ ]---     
 Type '""" + Style.BRIGHT + """?""" + Style.RESET_ALL + """' to get all the available options.
 Type '""" + Style.BRIGHT + """set""" + Style.RESET_ALL + """' to set a context-specific variable to a value.
@@ -650,27 +664,28 @@ Type '""" + Style.BRIGHT + """back""" + Style.RESET_ALL + """' to move back from
 Type '""" + Style.BRIGHT + """quit""" + Style.RESET_ALL + """' (or use <Ctrl-C>) to quit commix.
 Type '""" + Style.BRIGHT + """os_shell""" + Style.RESET_ALL + """' to get into an operating system command shell.
 Type '""" + Style.BRIGHT + """reverse_tcp""" + Style.RESET_ALL + """' to get a reverse TCP connection.
-"""
+""")
 
 """
 The available mobile user agents.
 """
 def mobile_user_agents():
-
-    print """---[ """ + Style.BRIGHT + Fore.BLUE + """Available Mobile HTTP User-Agent headers""" + Style.RESET_ALL + """ ]---     
-Type '""" + Style.BRIGHT + """1""" + Style.RESET_ALL + """' for BlackBerry 9900 HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """2""" + Style.RESET_ALL + """' for Samsung Galaxy S HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """3""" + Style.RESET_ALL + """' for HP iPAQ 6365 HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """4""" + Style.RESET_ALL + """' for HTC Sensation HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """5""" + Style.RESET_ALL + """' for Apple iPhone 4s HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """6""" + Style.RESET_ALL + """' for Google Nexus 7 HTTP User-Agent header.
-Type '""" + Style.BRIGHT + """7""" + Style.RESET_ALL + """' for Nokia N97 HTTP User-Agent header.
-"""
+    print("""---[ """ + Style.BRIGHT + Fore.BLUE + """Available smartphones HTTP User-Agent headers""" + Style.RESET_ALL + """ ]---     
+Type '""" + Style.BRIGHT + """1""" + Style.RESET_ALL + """' for BlackBerry Z10.
+Type '""" + Style.BRIGHT + """2""" + Style.RESET_ALL + """' for Samsung Galaxy S7.
+Type '""" + Style.BRIGHT + """3""" + Style.RESET_ALL + """' for HP iPAQ 6365.
+Type '""" + Style.BRIGHT + """4""" + Style.RESET_ALL + """' for HTC 10.
+Type '""" + Style.BRIGHT + """5""" + Style.RESET_ALL + """' for Huawei P8.
+Type '""" + Style.BRIGHT + """6""" + Style.RESET_ALL + """' for Apple iPhone 8.
+Type '""" + Style.BRIGHT + """7""" + Style.RESET_ALL + """' for Microsoft Lumia 950.
+Type '""" + Style.BRIGHT + """8""" + Style.RESET_ALL + """' for Google Nexus 7.
+Type '""" + Style.BRIGHT + """9""" + Style.RESET_ALL + """' for Nokia N97.
+Type '""" + Style.BRIGHT + """10""" + Style.RESET_ALL + """' for Google Pixel".
+Type '""" + Style.BRIGHT + """11""" + Style.RESET_ALL + """' for Xiaomi Mi 3.""")
 
     while True:
-      question_msg = "Which mobile HTTP User-Agent header do you want to use? "
-      sys.stdout.write(settings.print_question_msg(question_msg))
-      mobile_user_agent = sys.stdin.readline().replace("\n","").lower()
+      question_msg = "Which smartphone do you want to imitate through HTTP User-Agent header? "
+      mobile_user_agent = _input(settings.print_question_msg(question_msg))
       try:
         if int(mobile_user_agent) in range(0,len(settings.MOBILE_USER_AGENT_LIST)):
           return settings.MOBILE_USER_AGENT_LIST[int(mobile_user_agent)]
@@ -678,11 +693,11 @@ Type '""" + Style.BRIGHT + """7""" + Style.RESET_ALL + """' for Nokia N97 HTTP U
           raise SystemExit()
         else:
           err_msg = "'" + mobile_user_agent + "' is not a valid answer."  
-          print settings.print_error_msg(err_msg)
+          print(settings.print_error_msg(err_msg))
           pass
       except ValueError:
         err_msg = "'" + mobile_user_agent + "' is not a valid answer."  
-        print settings.print_error_msg(err_msg)
+        print(settings.print_error_msg(err_msg))
         pass     
 
 """
