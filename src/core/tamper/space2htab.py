@@ -24,8 +24,8 @@ __tamper__ = "space2htab"
 
 settings.TAMPER_SCRIPTS[__tamper__] = True
 if settings.WHITESPACES[0] == "%20":
-  settings.WHITESPACES[0] = "%09"
+    settings.WHITESPACES[0] = "%09"
 else:
-  settings.WHITESPACES.append("%09") 
+    settings.WHITESPACES.append("%09")
 
-# eof 
+    # eof

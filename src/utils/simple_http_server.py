@@ -13,22 +13,22 @@ the Free Software Foundation, either version 3 of the License, or
 For more see the file 'readme/COPYING' for copying permission.
 """
 
-import re
-import sys
+import _thread
 import errno
+import re
 import socket
-from os import curdir, sep
-from src.utils import menu
-from src.utils import settings
+import socketserver as _socketserver
+# from src.thirdparty.six.moves import BaseHTTPServer as _BaseHTTPServer
+from http.server import BaseHTTPRequestHandler
 from socket import error as socket_error
-from src.thirdparty.colorama import Fore, Back, Style, init
-from src.thirdparty.six.moves import _thread as thread
-from src.thirdparty.six.moves import socketserver as _socketserver
-from src.thirdparty.six.moves import BaseHTTPServer as _BaseHTTPServer
+
+from src.utils import settings
 
 """
 Validates IPv4 addresses.
 """
+
+
 def is_valid_ipv4(ip_addr):
     pattern = re.compile(r"""
         ^
@@ -66,49 +66,53 @@ def is_valid_ipv4(ip_addr):
     """, re.VERBOSE | re.IGNORECASE)
     return pattern.match(ip_addr) is not None
 
+
 def grab_ip_addr():
-  try:
-    s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-    s.connect(("8.8.8.8",53))
-    s.settimeout(2)
-    ip_addr = s.getsockname()[0]
-    s.close()
-    return ip_addr
-  except socket_error as err_msg:
-    if errno.ECONNREFUSED:
-      warn_msg = "Internet seems unreachable."
-      print(settings.print_warning_msg(warn_msg))
-    else:
-      print(settings.print_critical_msg(str(err_msg)) + "\n")
-      raise SystemExit()
+    try:
+        s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+        s.connect(("8.8.8.8", 53))
+        s.settimeout(2)
+        ip_addr = s.getsockname()[0]
+        s.close()
+        return ip_addr
+    except socket_error as err_msg:
+        if errno.ECONNREFUSED:
+            warn_msg = "Internet seems unreachable."
+            print(settings.print_warning_msg(warn_msg))
+        else:
+            print(settings.print_critical_msg(str(err_msg)) + "\n")
+            raise SystemExit()
 
-class Handler(_BaseHTTPServer.BaseHTTPRequestHandler):
+
+class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
-      try:
-        #Open the static file requested and send it
-        f = open(self.path) 
-        self.send_response(200)
-        self.end_headers()
-        self.wfile.write(f.read())
-        f.close()
+        try:
+            # Open the static file requested and send it
+            f = open(self.path)
+            self.send_response(200)
+            self.end_headers()
+            self.wfile.write(f.read())
+            f.close()
 
-      except IOError:
-        self.wfile.write(settings.APPLICATION + " " + settings.VERSION + " (https://commixproject.com)")
-      
+        except IOError:
+            self.wfile.write(settings.APPLICATION + " " + settings.VERSION + " (https://commixproject.com)")
+
     def log_message(self, format, *args):
-      return
+        return
+
 
 class ReusableTCPServer(_socketserver.TCPServer):
     allow_reuse_address = True
 
+
 def main():
-  try:
-    connection_refused = False
-    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
-  except socket_error:
-    if errno.ECONNREFUSED:
-      connection_refused = True
-  if connection_refused == False:
-    # Start the server in a background thread.
-    httpd = ReusableTCPServer(('', settings.LOCAL_HTTP_PORT), Handler)
-    thread.start_new_thread(httpd.serve_forever, ())
+    try:
+        connection_refused = False
+        s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+    except socket_error:
+        if errno.ECONNREFUSED:
+            connection_refused = True
+    if connection_refused == False:
+        # Start the server in a background thread.
+        httpd = ReusableTCPServer(('', settings.LOCAL_HTTP_PORT), Handler)
+        _thread.start_new_thread(httpd.serve_forever, ())

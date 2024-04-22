@@ -7,9 +7,11 @@ flatten_json flattens the hierarchy in your object which can be useful if you wa
 
 https://github.com/amirziai/flatten
 """
-from src.utils import settings
-from collections import Iterable
+# from collections import Iterable
 from collections import OrderedDict
+
+from src.utils import settings
+
 
 def check_if_numbers_are_consecutive(list_):
     """
@@ -20,6 +22,7 @@ def check_if_numbers_are_consecutive(list_):
     """
     return all([True if second - first == 1 else False
                 for first, second in zip(list_[:-1], list_[1:])])
+
 
 def _construct_key(previous_key, separator, new_key):
     """
@@ -33,6 +36,7 @@ def _construct_key(previous_key, separator, new_key):
         return "{}{}{}".format(previous_key, separator, new_key)
     else:
         return new_key
+
 
 def flatten(nested_dict, separator="_", root_keys_to_ignore=""):
     """
@@ -76,7 +80,9 @@ def flatten(nested_dict, separator="_", root_keys_to_ignore=""):
     _flatten(nested_dict, None)
     return flattened_dict
 
+
 flatten_json = flatten
+
 
 def _unflatten_asserts(flat_dict, separator):
     try:
@@ -86,6 +92,7 @@ def _unflatten_asserts(flat_dict, separator):
     except AssertionError as err_msg:
         print(settings.print_critical_msg(err_msg))
         raise SystemExit()
+
 
 def unflatten(flat_dict, separator='_'):
     """
@@ -111,6 +118,7 @@ def unflatten(flat_dict, separator='_'):
         _unflatten(unflattened_dict, item.split(separator), flat_dict[item])
 
     return unflattened_dict
+
 
 def unflatten_list(flat_dict, separator='_'):
     """

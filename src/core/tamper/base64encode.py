@@ -13,9 +13,9 @@ the Free Software Foundation, either version 3 of the License, or
 For more see the file 'readme/COPYING' for copying permission.
 """
 
-import sys
 import base64
-from src.thirdparty.six.moves import urllib as _urllib
+import urllib as _urllib
+
 from src.utils import settings
 
 """
@@ -26,20 +26,21 @@ Notes: This tamper script works against all targets.
 __tamper__ = "base64encode"
 
 if not settings.TAMPER_SCRIPTS[__tamper__]:
-  settings.TAMPER_SCRIPTS[__tamper__] = True
+    settings.TAMPER_SCRIPTS[__tamper__] = True
+
 
 def tamper(payload):
-  if settings.WHITESPACES[0] == "+":
-    err_msg = "Tamper script '" +  __tamper__  + "' is unlikely to work combined with the tamper script 'space2plus'."
-    if settings.VERBOSITY_LEVEL == 0:
-      print(settings.SINGLE_WHITESPACE)
-    print(settings.print_critical_msg(err_msg)) 
-    raise SystemExit()
+    if settings.WHITESPACES[0] == "+":
+        err_msg = "Tamper script '" + __tamper__ + "' is unlikely to work combined with the tamper script 'space2plus'."
+        if settings.VERBOSITY_LEVEL == 0:
+            print(settings.SINGLE_WHITESPACE)
+        print(settings.print_critical_msg(err_msg))
+        raise SystemExit()
 
-  else:
-    payload = _urllib.parse.unquote(payload)
-    payload = base64.b64encode(payload.encode())
-    payload = payload.decode(settings.UNICODE_ENCODING)
-    return payload
+    else:
+        payload = _urllib.parse.unquote(payload)
+        payload = base64.b64encode(payload.encode())
+        payload = payload.decode(settings.UNICODE_ENCODING)
+        return payload
 
-# eof 
+# eof

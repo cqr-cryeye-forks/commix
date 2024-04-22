@@ -14,6 +14,7 @@ For more see the file 'readme/COPYING' for copying permission.
 """
 
 import sys
+
 from src.utils import settings
 
 """
@@ -26,15 +27,15 @@ Notes: This tamper script works against *nix targets.
 __tamper__ = "space2ifs"
 
 if settings.TARGET_OS != "win":
-  settings.TAMPER_SCRIPTS[__tamper__] = True
-  if settings.WHITESPACES[0] == "%20":
-    settings.WHITESPACES[0] = "${IFS}"
-  else:
-    settings.WHITESPACES.append("${IFS}") 
+    settings.TAMPER_SCRIPTS[__tamper__] = True
+    if settings.WHITESPACES[0] == "%20":
+        settings.WHITESPACES[0] = "${IFS}"
+    else:
+        settings.WHITESPACES.append("${IFS}")
 else:
-  warn_msg = "Windows target host(s), does not support the '"+ __tamper__  +".py' tamper script."
-  sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
-  sys.stdout.flush() 
-  print
-  
-# eof 
+    warn_msg = "Windows target host(s), does not support the '" + __tamper__ + ".py' tamper script."
+    sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
+    sys.stdout.flush()
+    print
+
+# eof

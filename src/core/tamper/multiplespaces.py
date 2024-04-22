@@ -14,6 +14,7 @@ For more see the file 'readme/COPYING' for copying permission.
 """
 
 import random
+
 from src.utils import settings
 
 """
@@ -26,4 +27,4 @@ __tamper__ = "multiplespaces"
 settings.TAMPER_SCRIPTS[__tamper__] = True
 settings.WHITESPACES[0] = settings.WHITESPACES[0] * random.randrange(2, 8)
 
-# eof 
+# eof

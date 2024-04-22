@@ -24,8 +24,8 @@ __tamper__ = "space2plus"
 
 settings.TAMPER_SCRIPTS[__tamper__] = True
 if settings.WHITESPACES[0] == "%20":
-  settings.WHITESPACES[0] = "+"
+    settings.WHITESPACES[0] = "+"
 else:
-  settings.WHITESPACES.append("+") 
+    settings.WHITESPACES.append("+")
 
-# eof 
+    # eof

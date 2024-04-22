@@ -18,152 +18,154 @@ Based on "purge.py" script from sqlmap [1].
 [1] https://github.com/sqlmapproject/sqlmap/blob/master/lib/utils/purge.py
 """
 
+import functools
 import os
-import sys
-import stat
 import random
 import shutil
+import stat
 import string
-import functools
-from src.utils import menu
-from src.utils import settings
+import sys
+
 from src.core.compat import xrange
-from src.thirdparty.colorama import Fore, Back, Style, init
+from src.utils import settings
 
 """
 Safely removes (purges) output directory.
 """
 
+
 def purge():
-  directory = settings.OUTPUT_DIR
-  if not os.path.isdir(directory):
-    warn_msg = "Skipping purging of directory '" + directory + "' as it does not exist."
-    print(settings.print_warning_msg(warn_msg))
-    return
-  info_msg = "Purging content of directory '" + directory + "'"
-  if not settings.VERBOSITY_LEVEL != 0: 
-    info_msg += ". "
-  else:
-     info_msg += ".\n" 
-  sys.stdout.write(settings.print_info_msg(info_msg))
-  sys.stdout.flush()  
-
-  # Purging content of target directory.
-  dir_paths = []
-  file_paths = []
-  for rootpath, directories, filenames in os.walk(directory):
-    dir_paths.extend([os.path.abspath(os.path.join(rootpath, i)) for i in directories])
-    file_paths.extend([os.path.abspath(os.path.join(rootpath, i)) for i in filenames])
-
-  # Changing file attributes.
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Changing file attributes."
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-    sys.stdout.flush() 
-  failed = False
-  for file_path in file_paths:
-    try:
-      os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
-    except:
-      failed = True
-      pass
-  if settings.VERBOSITY_LEVEL != 0:    
-    if not failed:  
-      print(settings.SINGLE_WHITESPACE)
+    directory = settings.OUTPUT_DIR
+    if not os.path.isdir(directory):
+        warn_msg = "Skipping purging of directory '" + directory + "' as it does not exist."
+        print(settings.print_warning_msg(warn_msg))
+        return
+    info_msg = "Purging content of directory '" + directory + "'"
+    if not settings.VERBOSITY_LEVEL != 0:
+        info_msg += ". "
     else:
-      print(settings.SINGLE_WHITESPACE)
+        info_msg += ".\n"
+    sys.stdout.write(settings.print_info_msg(info_msg))
+    sys.stdout.flush()
 
-  # Writing random data to files.
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Writing random data to files. "
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-    sys.stdout.flush() 
-  failed = False
-  for file_path in file_paths:
-    try:
-      filesize = os.path.getsize(file_path)
-      with open(file_path, "w+b") as f:
-        f.write("".join(chr(random.randint(0, 255)) for _ in xrange(filesize)))
-    except:
-      failed = True
-      pass
-  if settings.VERBOSITY_LEVEL != 0:    
-    if not failed:  
-      print(settings.SINGLE_WHITESPACE)
-    else:
-      print(settings.SINGLE_WHITESPACE)
+    # Purging content of target directory.
+    dir_paths = []
+    file_paths = []
+    for rootpath, directories, filenames in os.walk(directory):
+        dir_paths.extend([os.path.abspath(os.path.join(rootpath, i)) for i in directories])
+        file_paths.extend([os.path.abspath(os.path.join(rootpath, i)) for i in filenames])
 
-  # Truncating files.
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Truncating files."
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-    sys.stdout.flush() 
-  failed = False
-  for file_path in file_paths:
-    try:
-      with open(file_path, 'w') as f:
-        pass
-    except:
-      failed = True
-      pass
-  if settings.VERBOSITY_LEVEL != 0:    
-    if not failed:  
-      print(settings.SINGLE_WHITESPACE)
-    else:
-      print(settings.SINGLE_WHITESPACE)
-
-  # Renaming filenames to random values.
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Renaming filenames to random values."
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-    sys.stdout.flush() 
-  failed = False
-  for file_path in file_paths:
-    try:
-      os.rename(file_path, os.path.join(os.path.dirname(file_path), "".join(random.sample(string.ascii_letters, random.randint(4, 8)))))
-    except:
-      failed = True
-      pass
-  if settings.VERBOSITY_LEVEL != 0:    
-    if not failed:  
-      print(settings.SINGLE_WHITESPACE)
-    else:
-      print(settings.SINGLE_WHITESPACE)
-
-  # Renaming directory names to random values.
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Renaming directory names to random values."
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-    sys.stdout.flush() 
-  failed = False
-  dir_paths.sort(key=functools.cmp_to_key(lambda x, y: y.count(os.path.sep) - x.count(os.path.sep)))
-  for dir_path in dir_paths:
-    try:
-      os.rename(dir_path, os.path.join(os.path.dirname(dir_path), "".join(random.sample(string.ascii_letters, random.randint(4, 8)))))
-    except:
-      failed = True
-      pass
-  if settings.VERBOSITY_LEVEL != 0:    
-    if not failed:  
-      print(settings.SINGLE_WHITESPACE)
-    else:
-      print(settings.SINGLE_WHITESPACE)
-
-  # Deleting the whole directory tree. 
-  if settings.VERBOSITY_LEVEL != 0:
-    debug_msg = "Deleting the whole directory tree."
-    sys.stdout.write(settings.print_debug_msg(debug_msg))
-  try:
+    # Changing file attributes.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Changing file attributes."
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+        sys.stdout.flush()
     failed = False
-    os.chdir(os.path.join(directory, ".."))
-    shutil.rmtree(directory)
-  except OSError as ex:
-    failed = True  
-  if not failed:  
-    print(settings.SINGLE_WHITESPACE)
-  else:
-    print(settings.SINGLE_WHITESPACE)    
-    err_msg = "Problem occurred while removing directory '" + directory + "'."
-    print(settings.print_critical_msg(err_msg))
+    for file_path in file_paths:
+        try:
+            os.chmod(file_path, stat.S_IREAD | stat.S_IWRITE)
+        except Exception:
+            failed = True
+            pass
+    if settings.VERBOSITY_LEVEL != 0:
+        if not failed:
+            print(settings.SINGLE_WHITESPACE)
+        else:
+            print(settings.SINGLE_WHITESPACE)
+
+    # Writing random data to files.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Writing random data to files. "
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+        sys.stdout.flush()
+    failed = False
+    for file_path in file_paths:
+        try:
+            filesize = os.path.getsize(file_path)
+            with open(file_path, "w+b") as f:
+                f.write("".join(chr(random.randint(0, 255)) for _ in xrange(filesize)))
+        except Exception:
+            failed = True
+            pass
+    if settings.VERBOSITY_LEVEL != 0:
+        if not failed:
+            print(settings.SINGLE_WHITESPACE)
+        else:
+            print(settings.SINGLE_WHITESPACE)
+
+    # Truncating files.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Truncating files."
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+        sys.stdout.flush()
+    failed = False
+    for file_path in file_paths:
+        try:
+            with open(file_path, 'w') as f:
+                pass
+        except Exception:
+            failed = True
+            pass
+    if settings.VERBOSITY_LEVEL != 0:
+        if not failed:
+            print(settings.SINGLE_WHITESPACE)
+        else:
+            print(settings.SINGLE_WHITESPACE)
+
+    # Renaming filenames to random values.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Renaming filenames to random values."
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+        sys.stdout.flush()
+    failed = False
+    for file_path in file_paths:
+        try:
+            os.rename(file_path, os.path.join(os.path.dirname(file_path),
+                                              "".join(random.sample(string.ascii_letters, random.randint(4, 8)))))
+        except Exception:
+            failed = True
+            pass
+    if settings.VERBOSITY_LEVEL != 0:
+        if not failed:
+            print(settings.SINGLE_WHITESPACE)
+        else:
+            print(settings.SINGLE_WHITESPACE)
+
+    # Renaming directory names to random values.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Renaming directory names to random values."
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+        sys.stdout.flush()
+    failed = False
+    dir_paths.sort(key=functools.cmp_to_key(lambda x, y: y.count(os.path.sep) - x.count(os.path.sep)))
+    for dir_path in dir_paths:
+        try:
+            os.rename(dir_path, os.path.join(os.path.dirname(dir_path),
+                                             "".join(random.sample(string.ascii_letters, random.randint(4, 8)))))
+        except Exception:
+            failed = True
+            pass
+    if settings.VERBOSITY_LEVEL != 0:
+        if not failed:
+            print(settings.SINGLE_WHITESPACE)
+        else:
+            print(settings.SINGLE_WHITESPACE)
+
+    # Deleting the whole directory tree.
+    if settings.VERBOSITY_LEVEL != 0:
+        debug_msg = "Deleting the whole directory tree."
+        sys.stdout.write(settings.print_debug_msg(debug_msg))
+    try:
+        failed = False
+        os.chdir(os.path.join(directory, ".."))
+        shutil.rmtree(directory)
+    except OSError as ex:
+        failed = True
+    if not failed:
+        print(settings.SINGLE_WHITESPACE)
+    else:
+        print(settings.SINGLE_WHITESPACE)
+        err_msg = "Problem occurred while removing directory '" + directory + "'."
+        print(settings.print_critical_msg(err_msg))
 
 # eof

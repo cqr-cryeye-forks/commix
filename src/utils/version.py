@@ -14,23 +14,29 @@ For more see the file 'readme/COPYING' for copying permission.
 """
 
 import sys
+
 from src.utils import settings
 
 """
 Show version number and exit.
 """
+
+
 def show_version():
-  print(settings.VERSION)
-  raise SystemExit()
+    print(settings.VERSION)
+    raise SystemExit()
+
 
 """
 Check python version number.
 """
+
+
 def python_version():
-  PYTHON_VERSION = sys.version.split()[0]
-  if PYTHON_VERSION >= "3" or PYTHON_VERSION < "2.7":
-    warn_msg = "Python version " 
-    warn_msg += PYTHON_VERSION + " detected. "
-    warn_msg += "You are advised to use Python version 2.7.x."
-    print("\n" + settings.print_bold_warning_msg(warn_msg))
-    #raise SystemExit()
+    PYTHON_VERSION = sys.version.split()[0]
+    if PYTHON_VERSION >= "3" or PYTHON_VERSION < "2.7":
+        warn_msg = "Python version "
+        warn_msg += PYTHON_VERSION + " detected. "
+        warn_msg += "You are advised to use Python version 2.7.x."
+        print("\n" + settings.print_bold_warning_msg(warn_msg))
+        # raise SystemExit()

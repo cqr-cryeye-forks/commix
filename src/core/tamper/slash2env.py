@@ -12,6 +12,7 @@ For more see the file 'readme/COPYING' for copying permission.
 """
 
 import sys
+
 from src.utils import settings
 
 """
@@ -23,34 +24,34 @@ Reference: https://www.secjuice.com/bypass-strict-input-validation-with-remove-s
 __tamper__ = "slash2env"
 
 if not settings.TAMPER_SCRIPTS[__tamper__]:
-  settings.TAMPER_SCRIPTS[__tamper__] = True
+    settings.TAMPER_SCRIPTS[__tamper__] = True
+
 
 def tamper(payload):
-  def add_slash2env(payload):
-    settings.TAMPER_SCRIPTS[__tamper__] = True
-    payload = payload.replace("/", "${PATH%%u*}")
-    return payload
+    def add_slash2env(payload):
+        settings.TAMPER_SCRIPTS[__tamper__] = True
+        payload = payload.replace("/", "${PATH%%u*}")
+        return payload
 
-  if settings.TARGET_OS != "win":
-    if settings.EVAL_BASED_STATE != False:
-      if settings.TRANFROM_PAYLOAD == None:
-        settings.TRANFROM_PAYLOAD = False
-        warn_msg = "The dynamic code evaluation technique, does not support the '"+ __tamper__  +".py' tamper script."
-        sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
-        sys.stdout.flush() 
-        print
+    if settings.TARGET_OS != "win":
+        if settings.EVAL_BASED_STATE != False:
+            if settings.TRANFROM_PAYLOAD == None:
+                settings.TRANFROM_PAYLOAD = False
+                warn_msg = "The dynamic code evaluation technique, does not support the '" + __tamper__ + ".py' tamper script."
+                sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
+                sys.stdout.flush()
+                print
+        else:
+            settings.TRANFROM_PAYLOAD = True
+            if settings.TRANFROM_PAYLOAD:
+                payload = add_slash2env(payload)
+
     else:
-      settings.TRANFROM_PAYLOAD = True
-      if settings.TRANFROM_PAYLOAD:
-        payload = add_slash2env(payload)
+        if settings.TRANFROM_PAYLOAD == None:
+            settings.TRANFROM_PAYLOAD = False
+            warn_msg = "Windows target host(s), does not support the '" + __tamper__ + ".py' tamper script."
+            sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
+            sys.stdout.flush()
+            print
 
-  else:
-    if settings.TRANFROM_PAYLOAD == None:
-      settings.TRANFROM_PAYLOAD = False
-      warn_msg = "Windows target host(s), does not support the '"+ __tamper__  +".py' tamper script."
-      sys.stdout.write("\r" + settings.print_warning_msg(warn_msg))
-      sys.stdout.flush() 
-      print
-
-  return payload
-  
+    return payload

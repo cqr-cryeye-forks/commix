@@ -13,7 +13,6 @@ the Free Software Foundation, either version 3 of the License, or
 For more see the file 'readme/COPYING' for copying permission.
 """
 
-import sys
 from src.utils import settings
 
 """
@@ -25,5 +24,5 @@ __tamper__ = "backticks"
 
 settings.TAMPER_SCRIPTS[__tamper__] = True
 settings.USE_BACKTICKS = True
-  
-# eof 
+
+# eof

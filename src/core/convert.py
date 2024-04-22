@@ -14,26 +14,28 @@ For more see the file 'readme/COPYING' for copying permission.
 """
 
 import codecs
-from src.utils import settings 
+
 from src.thirdparty import six
+from src.utils import settings
+
 
 def hexdecode(value):
-  if value.lower().startswith("0x"):
-    value = value[2:]
-  try:
-    value = codecs.decode(''.join(value.split()), "hex")
-  except LookupError:
-    value = binascii.unhexlify(value)
-  value = value.decode(settings.UNICODE_ENCODING)
-  return value
+    if value.lower().startswith("0x"):
+        value = value[2:]
+    try:
+        value = codecs.decode(''.join(value.split()), "hex")
+    except LookupError:
+        value = binascii.unhexlify(value)
+    value = value.decode(settings.UNICODE_ENCODING)
+    return value
+
 
 def hexencode(value):
-  if isinstance(value, six.text_type):
-    value = value.encode(settings.UNICODE_ENCODING)
-  try:
-    value = codecs.encode(value, "hex")
-  except LookupError:
-    value = binascii.hexlify(value)
-  value = value.decode(settings.UNICODE_ENCODING)
-  return value
-
+    if isinstance(value, six.text_type):
+        value = value.encode(settings.UNICODE_ENCODING)
+    try:
+        value = codecs.encode(value, "hex")
+    except LookupError:
+        value = binascii.hexlify(value)
+    value = value.decode(settings.UNICODE_ENCODING)
+    return value
